@@ -2,16 +2,16 @@ const db = require('../config/db');
 
 const Contributions = {
   // Récupérer toutes les contributions d'un utilisateur
-  getAll: (id_user, callback) => {
+  getAll: (id_objectif, callback) => {
     const sql = `
       SELECT c.*, o.nom AS objectif_nom, co.nom AS compte_nom
       FROM Contributions c
       LEFT JOIN Objectifs o ON c.id_objectif = o.id_objectif
       LEFT JOIN Comptes co ON c.id_compte = co.id_compte
-      WHERE c.id_user = ?
+      WHERE c.id_objectif = ?
       ORDER BY c.date_contribution DESC
     `;
-    db.query(sql, [id_user], callback);
+    db.query(sql, [id_objectif], callback);
   },
 
   // Ajouter une contribution
