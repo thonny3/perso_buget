@@ -17,7 +17,7 @@ const DepensesController = {
     const data = { ...req.body, id_user };
     Depenses.add(data, (err, result) => {
       if (err) return res.status(500).json({ error: err });
-      res.json({ message: 'Dépense ajoutée', id: result.insertId });
+      res.json({ message: 'Dépense ajoutée', ...(result || {}) });
     });
   },
 
