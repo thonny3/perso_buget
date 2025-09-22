@@ -1,5 +1,6 @@
 const Compte = require('../models/compteModel');
-const ComptePartage  = require('../models/comptesPartagesModel')
+const ComptePartage  = require('../models/comptesPartagesModel');
+const db = require('../config/db');
 
 // --- Controller Comptes ---
 const compteController = {
@@ -14,8 +15,7 @@ const compteController = {
         Compte.create({ id_user, nom, solde: solde || 0.00, type }, (err, result) => {
             if (err) return res.status(500).json({ error: err });
             res.status(201).json({ message: "Compte créé avec succès", id: result.insertId });
-            ComptePartage.create({id_compte:result.insertId,id_user,role:"proprietaire"})
-
+            ComptePartage.create({id_compte:result.insertId,id_user,role:"proprietaire"});
         });
     },
 
@@ -62,11 +62,18 @@ const compteController = {
     },
     // Récupérer tous les comptes de l'utilisateur authentifié
     getMyAccounts: (req, res) => {
-
         const id_user = req.user.id_user;
         console.log(`Récupération des comptes pour l'utilisateur ID: ${id_user}`);
-        // récupéré depuis le middleware
-        Compte.findByUserId(id_user, (err, rows) => {
+        
+        // Récupérer les comptes avec la devise de l'utilisateur
+        const sql = `
+            SELECT c.*, u.devise 
+            FROM Comptes c 
+            INNER JOIN Users u ON u.id_user = c.id_user 
+            WHERE c.id_user = ?
+        `;
+        
+        db.query(sql, [id_user], (err, rows) => {
             if (err) return res.status(500).json({ error: err });
             res.json(rows);
         });

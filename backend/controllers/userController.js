@@ -66,6 +66,30 @@ const userController = {
             if (err) return res.status(500).json({ error: err });
             res.json({ message: 'Utilisateur supprimé' });
         });
+    },
+
+    verify: (req, res) => {
+        // Le middleware auth a déjà vérifié le token et ajouté req.user
+        const userId = req.user.id_user;
+        
+        User.findById(userId, (err, users) => {
+            if (err) return res.status(500).json({ error: err });
+            if (users.length === 0) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+            
+            const user = users[0];
+            res.json({ 
+                message: 'Token valide', 
+                user: { 
+                    id_user: user.id_user, 
+                    nom: user.nom, 
+                    prenom: user.prenom, 
+                    email: user.email, 
+                    devise: user.devise, 
+                    image: user.image, 
+                    role: user.role 
+                } 
+            });
+        });
     }
 };
 

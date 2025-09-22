@@ -1,41 +1,59 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Image, ScrollView } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Image, ScrollView, Alert } from 'react-native';
 import React, { useState } from 'react';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Dashboard from './components/Dashboard';
+import { authService } from './services/apiService';
 
-function LoginScreen({ onSwitchToRegister }) {
+function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async () => {
+    console.log('🚀 Début du processus de connexion');
     setError('');
+    
+    // Validation
     if (!email) {
+      console.log('❌ Validation échouée: Email manquant');
       setError('Ny mailaka dia ilaina');
       return;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
+      console.log('❌ Validation échouée: Format email invalide');
       setError('Ny mailaka dia tsy marina');
       return;
     }
     if (!password || password.length < 6) {
+      console.log('❌ Validation échouée: Mot de passe trop court');
       setError('Ny teny miafina dia tokony ho 6 na mihoatra');
       return;
     }
 
+    console.log('✅ Validation réussie, tentative de connexion...');
     setLoading(true);
+    
     try {
-      // TODO: Replace with your API call, e.g., axios.post('...')
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      // Navigate to your main app screen if using a navigator
-      // For now, just clear the form
-      setEmail('');
-      setPassword('');
+      console.log('📡 Appel du service de connexion...');
+      const result = await authService.login({ email, password });
+      
+      console.log('📨 Résultat de connexion reçu:', result);
+      
+      if (result.success) {
+        console.log('✅ Connexion réussie, redirection vers le dashboard');
+        onSwitchToDashboard();
+      } else {
+        console.log('❌ Connexion échouée:', result.error);
+        setError(result.error);
+      }
     } catch (e) {
+      console.log('💥 Erreur inattendue lors de la connexion:', e);
       setError("Nisy olana tamin'ny fidirana");
     } finally {
+      console.log('🏁 Fin du processus de connexion');
       setLoading(false);
     }
   };
@@ -106,7 +124,7 @@ function LoginScreen({ onSwitchToRegister }) {
   );
 }
 
-function RegisterScreen({ onSwitchToLogin }) {
+function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -162,10 +180,23 @@ function RegisterScreen({ onSwitchToLogin }) {
 
     setLoading(true);
     try {
-      // TODO: Replace with your API call
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      // Navigate to login after successful registration
-      onSwitchToLogin();
+      const userData = {
+        nom: formData.firstName,
+        prenom: formData.lastName,
+        email: formData.email,
+        mot_de_passe: formData.password,
+        devise: formData.currency,
+      };
+
+      const result = await authService.register(userData);
+      
+      if (result.success) {
+        Alert.alert('Succès', 'Compte créé avec succès!', [
+          { text: 'OK', onPress: () => onSwitchToDashboard() }
+        ]);
+      } else {
+        setError(result.error);
+      }
     } catch (e) {
       setError("Nisy olana tamin'ny fisoratana anarana");
     } finally {
@@ -284,10 +315,24 @@ function RegisterScreen({ onSwitchToLogin }) {
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login');
 
+  const handleLogout = () => {
+    setCurrentScreen('login');
+  };
+
+  if (currentScreen === 'dashboard') {
+    return <Dashboard onLogout={handleLogout} />;
+  }
+
   return currentScreen === 'login' ? (
-    <LoginScreen onSwitchToRegister={() => setCurrentScreen('register')} />
+    <LoginScreen 
+      onSwitchToRegister={() => setCurrentScreen('register')} 
+      onSwitchToDashboard={() => setCurrentScreen('dashboard')}
+    />
   ) : (
-    <RegisterScreen onSwitchToLogin={() => setCurrentScreen('login')} />
+    <RegisterScreen 
+      onSwitchToLogin={() => setCurrentScreen('login')} 
+      onSwitchToDashboard={() => setCurrentScreen('dashboard')}
+    />
   );
 }
 
@@ -303,10 +348,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7f9',
   },
   card: {
-    width: '88%',
+    width: '95%',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 28,
     elevation: 3,
     shadowColor: '#000',
     shadowOpacity: 0.08,
@@ -314,17 +359,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: '#065f46',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: '#4b5563',
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 14,
+    marginTop: 8,
+    marginBottom: 18,
   },
   logoWrap: {
     width: '100%',
@@ -332,31 +377,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 88,
+    height: 88,
   },
   socialGroup: {
-    marginTop: 14,
-    marginBottom: 12,
-    gap: 8,
+    marginTop: 18,
+    marginBottom: 16,
+    gap: 12,
   },
   socialButton: {
-    height: 44,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#d1d5db',
     backgroundColor: '#fff',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
   socialText: {
-    marginLeft: 10,
+    marginLeft: 12,
     color: '#374151',
     fontWeight: '600',
+    fontSize: 15,
   },
   dividerRow: {
-    marginVertical: 10,
+    marginVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -367,92 +413,93 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
   },
   dividerText: {
-    marginHorizontal: 8,
+    marginHorizontal: 12,
     color: '#6b7280',
-    fontSize: 12,
+    fontSize: 14,
   },
   error: {
     color: '#dc2626',
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: 13,
+    marginBottom: 12,
     textAlign: 'center',
   },
   input: {
-    height: 48,
+    height: 56,
     borderWidth: 1,
     borderColor: '#d1d5db',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    marginBottom: 12,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    fontSize: 17,
+    marginBottom: 16,
     backgroundColor: '#fff',
   },
   button: {
-    height: 48,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 14,
     backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 8,
   },
   buttonText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 18,
   },
   linkRow: {
-    marginTop: 8,
+    marginTop: 12,
     alignItems: 'flex-end',
   },
   linkText: {
     color: '#059669',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   footerRow: {
-    marginTop: 12,
+    marginTop: 16,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
   footerText: {
     color: '#4b5563',
-    fontSize: 13,
+    fontSize: 15,
   },
   footerLink: {
     color: '#059669',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 15,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   row: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   halfInput: {
     flex: 1,
   },
   label: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   currencyContainer: {
-    height: 48,
+    height: 56,
     borderWidth: 1,
     borderColor: '#d1d5db',
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
   currencyText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#374151',
   },
 });

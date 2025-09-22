@@ -18,6 +18,7 @@ router.post('/register', upload.single('image'), userController.register);
 router.post('/login', userController.login);
 
 // Routes protégées
+router.get('/verify', auth, userController.verify);
 router.get('/', auth, userController.getAllUsers);
 router.get('/:id', auth, userController.getUser);
 router.put('/:id', auth, upload.single('image'), userController.updateUser);
