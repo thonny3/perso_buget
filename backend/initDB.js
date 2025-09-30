@@ -134,6 +134,18 @@ db.connect(err => {
               rappel BOOLEAN,
               FOREIGN KEY (id_user) REFERENCES Users(id_user)
             )`;
+            const createAlertesTable = `
+            CREATE TABLE IF NOT EXISTS Alertes (
+              id_alerte INT PRIMARY KEY AUTO_INCREMENT,
+              id_user INT NOT NULL,
+              type_alerte ENUM('budget_depasse','solde_faible','echeance_abonnement','objectif_atteint','transaction_inhabituelle') NOT NULL,
+              message TEXT,
+              date_creation DATETIME DEFAULT CURRENT_TIMESTAMP,
+              date_declenchement DATETIME NULL,
+              lue BOOLEAN DEFAULT FALSE,
+              parametres_specifiques JSON NULL,
+              FOREIGN KEY (id_user) REFERENCES Users(id_user)
+            )`;
 const createContributionsTable = `
 CREATE TABLE IF NOT EXISTS Contributions (
   id_contribution INT PRIMARY KEY AUTO_INCREMENT,
@@ -146,6 +158,36 @@ CREATE TABLE IF NOT EXISTS Contributions (
   FOREIGN KEY (id_user) REFERENCES Users(id_user),
   FOREIGN KEY (id_compte) REFERENCES Comptes(id_compte)
 )`;
+
+            const createDettesTable = `
+            CREATE TABLE IF NOT EXISTS Dettes (
+              id_dette INT PRIMARY KEY AUTO_INCREMENT,
+              id_user INT NOT NULL,
+              nom VARCHAR(200) NOT NULL,
+              montant_initial DECIMAL(12,2) NOT NULL,
+              montant_restant DECIMAL(12,2) NOT NULL,
+              taux_interet DECIMAL(5,2) DEFAULT 0,
+              date_debut DATE NOT NULL,
+              date_fin_prevue DATE,
+              paiement_mensuel DECIMAL(12,2) DEFAULT 0,
+              creancier VARCHAR(200),
+              statut VARCHAR(50) DEFAULT 'en cours',
+              type VARCHAR(50) DEFAULT 'personne',
+              FOREIGN KEY (id_user) REFERENCES Users(id_user)
+            )`;
+
+            const createRemboursementsTable = `
+            CREATE TABLE IF NOT EXISTS Remboursements (
+              id_remboursement INT PRIMARY KEY AUTO_INCREMENT,
+              id_dette INT NOT NULL,
+              id_user INT NOT NULL,
+              montant DECIMAL(12,2) NOT NULL,
+              date_paiement DATE NOT NULL,
+              id_compte INT,
+              FOREIGN KEY (id_dette) REFERENCES Dettes(id_dette) ON DELETE CASCADE,
+              FOREIGN KEY (id_user) REFERENCES Users(id_user),
+              FOREIGN KEY (id_compte) REFERENCES Comptes(id_compte)
+            )`;
 
             // ---------- CRÉATION DES TABLES ET INSERTIONS ----------
             dbBudget.query(createUsersTable, (err) => {
@@ -218,6 +260,18 @@ CREATE TABLE IF NOT EXISTS Contributions (
                                                             if (err) throw err;
                                                             console.log('Table Abonnements OK');
 
+                                                            dbBudget.query(createAlertesTable, async (err) => {
+                                                                if (err) throw err;
+                                                                console.log('Table Alertes OK');
+
+                                                                dbBudget.query(createDettesTable, (err) => {
+                                                                    if (err) throw err;
+                                                                    console.log('Table Dettes OK');
+
+                                                                    dbBudget.query(createRemboursementsTable, (err) => {
+                                                                        if (err) throw err;
+                                                                        console.log('Table Remboursements OK');
+
                                                             // ---------- CRÉATION COMPTE ADMIN ----------
                                                             const email = "admin@jalako.com";
                                                             const plainPassword = "admin123";
@@ -280,3 +334,4 @@ CREATE TABLE IF NOT EXISTS Contributions (
         });
     });
 });
+

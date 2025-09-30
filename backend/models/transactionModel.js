@@ -9,6 +9,7 @@ const Transactions = {
       CASE 
         WHEN t.type = 'revenu' THEN c.nom
         WHEN t.type = 'depense' THEN cd.nom
+        WHEN t.type = 'remboursement_dette' THEN 'Remboursement'
       END AS categorie_nom,
       cp.nom AS compte_nom,
       o.nom AS objectif_nom,
@@ -19,13 +20,15 @@ const Transactions = {
          SELECT date_depense AS date_transaction FROM Depenses WHERE id_user = ?
          UNION ALL
          SELECT date_contribution AS date_transaction FROM Contributions WHERE id_user = ?
+         UNION ALL
+         SELECT date_paiement AS date_transaction FROM Remboursements WHERE id_user = ?
        ) AS all_dates
       ) AS derniere_date
     FROM (
       SELECT 
         id_revenu AS id_transaction, 
-        id_user, 
-        montant, 
+        Revenus.id_user, 
+        Revenus.montant, 
         date_revenu AS date_transaction,
         source AS description, 
         id_categorie_revenu AS id_categorie, 
@@ -39,32 +42,48 @@ const Transactions = {
 
       SELECT 
         id_depense AS id_transaction, 
-        id_user, 
-        montant, 
+        d.id_user, 
+        d.montant, 
         date_depense AS date_transaction,
         description, 
         id_categorie_depense AS id_categorie, 
-        id_compte,
+        d.id_compte,
         NULL AS id_objectif,
         CASE WHEN cd.nom = 'Abonnements' THEN 'abonnement' ELSE 'depense' END AS type
       FROM Depenses d
       LEFT JOIN categories_depenses cd ON d.id_categorie_depense = cd.id
-      WHERE id_user = ?
+      WHERE d.id_user = ?
 
       UNION ALL
 
       SELECT
         id_contribution AS id_transaction,
-        id_user,
-        montant,
+        Contributions.id_user,
+        Contributions.montant,
         date_contribution AS date_transaction,
         'Contribution' AS description,
         NULL AS id_categorie,
-        id_compte,
+        Contributions.id_compte,
         id_objectif,
         'contribution' AS type
       FROM Contributions
       WHERE id_user = ?
+
+      UNION ALL
+
+      SELECT
+        id_remboursement AS id_transaction,
+        r.id_user,
+        -r.montant AS montant,
+        r.date_paiement AS date_transaction,
+        COALESCE(d.nom, '') AS description,
+        NULL AS id_categorie,
+        r.id_compte,
+        NULL AS id_objectif,
+        'remboursement_dette' AS type
+      FROM Remboursements r
+      LEFT JOIN Dettes d ON r.id_dette = d.id_dette
+      WHERE r.id_user = ?
     ) AS t
     LEFT JOIN categories_revenus c 
       ON t.type = 'revenu' AND t.id_categorie = c.id
@@ -77,7 +96,10 @@ const Transactions = {
     ORDER BY t.date_transaction DESC
   `;
 
-  db.query(sql, [id_user, id_user, id_user, id_user, id_user, id_user], callback);
+  db.query(sql, [
+    id_user, id_user, id_user, id_user, // all_dates subquery (Revenus, Depenses, Contributions, Remboursements)
+    id_user, id_user, id_user, id_user  // main UNION blocks (Revenus, Depenses, Contributions, Remboursements)
+  ], callback);
 }
 
 

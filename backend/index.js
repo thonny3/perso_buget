@@ -6,6 +6,7 @@ const compteRoutes = require('./routes/compteRoutes');
 const comptesPartagesRoutes = require('./routes/comptesPartagesRoutes');
 const revenuesRoutes = require('./routes/revenuesRoutes');
 const abonnementRoutes = require('./routes/abonnementRoutes');
+const alertesRoutes = require('./routes/alertesRoutes');
 const categorieRoutes = require('./routes/categoriesRoutes');
 const depenseroutes = require('./routes/depensesRoutes');
 const budgetroutes = require('./routes/budgetRoutes');
@@ -13,6 +14,7 @@ const objectifroutes = require('./routes/objectifRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const contributionRoutes = require('./routes/contributionRoutes');
 const transfertsRoutes = require('./routes/transfertsRoutes');
+const dettesRoutes = require('./routes/dettesRoutes');
 
 
 
@@ -47,6 +49,8 @@ app.use('/api/transactions', auth, transactionRoutes);
 app.use('/api/contributions', auth, contributionRoutes);
 app.use('/api/transferts', auth, transfertsRoutes);
 app.use('/api/abonnements', auth, abonnementRoutes);
+app.use('/api/alertes', auth, alertesRoutes);
+app.use('/api/dettes', auth, dettesRoutes);
 
 // Endpoint de santé pour les tests de connectivité
 app.get('/api/health', (req, res) => {
@@ -77,5 +81,5 @@ app.get('/api/ping', (req, res) => {
 });
 
 const PORT = 3001;
-app.listen(PORT, '192.168.1.248', () => console.log(`Server running on http://192.168.1.248:${PORT}`));
-//app.listen(PORT, 'localhost', () => console.log(`Server running on http://localhost:${PORT}`));
+//app.listen(PORT, '192.168.1.248', () => console.log(`Server running on http://192.168.1.248:${PORT}`));
+app.listen(PORT, 'localhost', () => console.log(`Server running on http://localhost:${PORT}`));
