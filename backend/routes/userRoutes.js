@@ -12,9 +12,11 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// Middleware pour parser JSON
+router.use(express.json());
 
 // Public routes
-router.post('/register', upload.single('image'), userController.register);
+router.post('/register', userController.register);
 router.post('/login', userController.login);
 
 // Routes protégées

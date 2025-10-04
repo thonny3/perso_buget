@@ -3,7 +3,7 @@ const db = require('../config/db');
 const User = {
     create: (data, callback) => {
         const sql = 'INSERT INTO Users (nom, prenom, email, mot_de_passe, devise, date_creation) VALUES (?, ?, ?, ?, ?, NOW())';
-        db.query(sql, [data.nom, data.prenom, data.email, data.mot_de_passe, data.devise, data.image], callback);
+        db.query(sql, [data.nom, data.prenom, data.email, data.mot_de_passe, data.devise], callback);
     },
 
     findByEmail: (email, callback) => {
