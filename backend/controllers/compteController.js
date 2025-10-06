@@ -6,14 +6,25 @@ const db = require('../config/db');
 const compteController = {
     // Créer un compte
     create: (req, res) => {
+        console.log('Body reçu:', req.body);
+        console.log('Headers:', req.headers);
+        
+        if (!req.body) {
+            return res.status(400).json({ message: "Body de la requête manquant" });
+        }
+        
         const { nom, solde, type } = req.body;
         const id_user = req.user.id_user; // récupéré depuis le middleware
+        
         if (!nom || !type) {
-            return res.status(400).json({ message: "Champs requis: id_user, nom, type" });
+            return res.status(400).json({ message: "Champs requis: nom, type" });
         }
 
         Compte.create({ id_user, nom, solde: solde || 0.00, type }, (err, result) => {
-            if (err) return res.status(500).json({ error: err });
+            if (err) {
+                console.error('Erreur création compte:', err);
+                return res.status(500).json({ error: err });
+            }
             res.status(201).json({ message: "Compte créé avec succès", id: result.insertId });
             ComptePartage.create({id_compte:result.insertId,id_user,role:"proprietaire"});
         });
