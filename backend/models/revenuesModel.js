@@ -59,7 +59,26 @@ const Revenues = {
 
   // Supprimer un revenu
   delete: (id_revenu, callback) => {
-    db.query('DELETE FROM revenus WHERE id_revenu = ?', [id_revenu], callback);
+    // Récupérer le revenu pour connaître le montant et le compte associé
+    const sqlSelect = 'SELECT montant, id_compte FROM revenus WHERE id_revenu = ?';
+    db.query(sqlSelect, [id_revenu], (err, rows) => {
+      if (err) return callback(err);
+      if (!rows || rows.length === 0) return callback(new Error('Revenu introuvable'));
+
+      const { montant, id_compte } = rows[0];
+
+      // Supprimer le revenu
+      db.query('DELETE FROM revenus WHERE id_revenu = ?', [id_revenu], (errDel) => {
+        if (errDel) return callback(errDel);
+
+        // Décrémenter le solde du compte associé
+        const sqlUpdateCompte = `UPDATE Comptes SET solde = solde - ? WHERE id_compte = ?`;
+        db.query(sqlUpdateCompte, [montant, id_compte], (errUpd) => {
+          if (errUpd) return callback(errUpd);
+          callback(null, { message: 'Revenu supprimé et solde mis à jour' });
+        });
+      });
+    });
   },
 
   // Récupérer un revenu par id

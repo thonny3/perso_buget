@@ -15,7 +15,23 @@ const BudgetController = {
      const id_user = req.user?.id_user;
     if (!id_user) return res.status(401).json({ message: "Non autorisé" });
 
-    const data = { ...req.body, id_user };
+    const { id_categorie_depense, mois, montant_max } = req.body || {};
+
+    if (!id_categorie_depense || !mois || montant_max == null) {
+      return res.status(400).json({ message: 'Champs requis manquants: id_categorie_depense, mois, montant_max' });
+    }
+
+    const parsedMontantMax = Number(montant_max);
+    if (!Number.isFinite(parsedMontantMax) || parsedMontantMax < 0) {
+      return res.status(400).json({ message: 'montant_max doit être un nombre >= 0' });
+    }
+
+    const data = {
+      ...req.body,
+      id_user,
+      // Règle métier: au moment de la création, le restant = max
+      montant_restant: parsedMontantMax
+    };
 
     Budgets.add(data, (err, result) => {
       if (err) return res.status(500).json({ error: err });

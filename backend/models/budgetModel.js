@@ -35,7 +35,11 @@ getAll: (id_user, callback) => {
 ,
 
   add: (data, callback) => {
-    const { id_user, id_categorie_depense, mois, montant_max, montant_restant } = data;
+    const { id_user, id_categorie_depense, mois, montant_max } = data;
+    // Défaut défensif coté modèle: si non fourni, montant_restant = montant_max
+    const montant_restant = Number.isFinite(Number(data.montant_restant))
+      ? Number(data.montant_restant)
+      : Number(montant_max);
     db.query(
       'INSERT INTO Budgets (id_user, id_categorie_depense, mois, montant_max, montant_restant) VALUES (?, ?, ?, ?, ?)',
       [id_user, id_categorie_depense, mois, montant_max, montant_restant],

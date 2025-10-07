@@ -119,7 +119,59 @@ add: (data, callback) => {
   },
 
   delete: (id_depense, callback) => {
-    db.query('DELETE FROM Depenses WHERE id_depense=?', [id_depense], callback);
+    db.beginTransaction((txErr) => {
+      if (txErr) return callback({ success: false, message: 'Erreur début transaction', error: txErr });
+
+      // 1) Lire la dépense à supprimer
+      const selectSql = `SELECT id_user, id_compte, id_categorie_depense, montant, date_depense FROM Depenses WHERE id_depense = ? FOR UPDATE`;
+      db.query(selectSql, [id_depense], (selErr, rows) => {
+        if (selErr) {
+          return db.rollback(() => callback({ success: false, message: 'Erreur lecture dépense', error: selErr }));
+        }
+        if (rows.length === 0) {
+          return db.rollback(() => callback({ success: false, message: 'Dépense introuvable', error: null }));
+        }
+
+        const { id_user, id_compte, id_categorie_depense, montant, date_depense } = rows[0];
+
+        // 2) Rembourser le compte
+        const refundSql = `UPDATE Comptes SET solde = solde + ? WHERE id_compte = ?`;
+        db.query(refundSql, [Number(montant) || 0, id_compte], (refErr) => {
+          if (refErr) {
+            return db.rollback(() => callback({ success: false, message: 'Erreur remboursement compte', error: refErr }));
+          }
+
+          // 3) Rétablir le budget du mois/catégorie (si existe)
+          const monthStr = new Date(date_depense).toISOString().slice(0, 7);
+          const budgetSql = `
+            UPDATE Budgets
+            SET montant_restant = montant_restant + ?
+            WHERE id_user = ?
+              AND id_categorie_depense = ?
+              AND LEFT(mois, 7) = ?
+          `;
+          db.query(budgetSql, [Number(montant) || 0, id_user, id_categorie_depense, monthStr], (budErr) => {
+            if (budErr) {
+              return db.rollback(() => callback({ success: false, message: 'Erreur mise à jour budget', error: budErr }));
+            }
+
+            // 4) Supprimer la dépense
+            db.query('DELETE FROM Depenses WHERE id_depense = ?', [id_depense], (delErr) => {
+              if (delErr) {
+                return db.rollback(() => callback({ success: false, message: 'Erreur suppression dépense', error: delErr }));
+              }
+
+              db.commit((commitErr) => {
+                if (commitErr) {
+                  return db.rollback(() => callback({ success: false, message: 'Erreur commit', error: commitErr }));
+                }
+                return callback(null, { success: true, message: 'Dépense supprimée, compte remboursé et budget rétabli.' });
+              });
+            });
+          });
+        });
+      });
+    });
   }
 };
 
