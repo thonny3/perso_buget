@@ -27,15 +27,21 @@ const Abonnements = {
     add: (data, callback) => {
         const { id_user, nom, montant, prochaine_echeance, rappel } = data;
         const frequence = data['fréquence'] || data.frequence;
+        const icon = data.icon || null;
+        const couleur = data.couleur || null;
         // Empêcher les doublons par (id_user, nom)
         db.query('SELECT 1 FROM Abonnements WHERE id_user=? AND nom=? LIMIT 1', [id_user, nom], (e0, rows) => {
             if (e0) return callback(e0);
             if (rows && rows.length > 0) return callback(Object.assign(new Error('Abonnement déjà existant'), { code: 'DUPLICATE_ABO' }));
-            db.query(
-                'INSERT INTO Abonnements (id_user, nom, montant, fréquence, prochaine_echeance, rappel) VALUES (?, ?, ?, ?, ?, ?)',
-                [id_user, nom, montant, frequence, prochaine_echeance, rappel],
-                callback
-            );
+            // Essayer avec les colonnes optionnelles icon/couleur, fallback si absentes
+            const sqlWithExtras = 'INSERT INTO Abonnements (id_user, nom, montant, fréquence, prochaine_echeance, rappel, icon, couleur) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+            const sqlBase = 'INSERT INTO Abonnements (id_user, nom, montant, fréquence, prochaine_echeance, rappel) VALUES (?, ?, ?, ?, ?, ?)';
+            db.query(sqlWithExtras, [id_user, nom, montant, frequence, prochaine_echeance, rappel, icon, couleur], (e1, result) => {
+                if (e1 && e1.code === 'ER_BAD_FIELD_ERROR') {
+                    return db.query(sqlBase, [id_user, nom, montant, frequence, prochaine_echeance, rappel], callback);
+                }
+                return callback(e1, result);
+            });
         });
     },
 
@@ -52,11 +58,17 @@ const Abonnements = {
     update: (id_abonnement, data, callback) => {
         const { nom, montant, prochaine_echeance, rappel } = data;
         const frequence = data['fréquence'] || data.frequence;
-        db.query(
-            'UPDATE Abonnements SET nom=?, montant=?, fréquence=?, prochaine_echeance=?, rappel=? WHERE id_abonnement=?',
-            [nom, montant, frequence, prochaine_echeance, rappel, id_abonnement],
-            callback
-        );
+        const icon = data.icon;
+        const couleur = data.couleur;
+        // Tenter mise à jour avec icon/couleur, fallback sans si colonnes absentes
+        const sqlWithExtras = 'UPDATE Abonnements SET nom=?, montant=?, fréquence=?, prochaine_echeance=?, rappel=?, icon=COALESCE(?, icon), couleur=COALESCE(?, couleur) WHERE id_abonnement=?';
+        const sqlBase = 'UPDATE Abonnements SET nom=?, montant=?, fréquence=?, prochaine_echeance=?, rappel=? WHERE id_abonnement=?';
+        db.query(sqlWithExtras, [nom, montant, frequence, prochaine_echeance, rappel, icon, couleur, id_abonnement], (e1, result) => {
+            if (e1 && e1.code === 'ER_BAD_FIELD_ERROR') {
+                return db.query(sqlBase, [nom, montant, frequence, prochaine_echeance, rappel, id_abonnement], callback);
+            }
+            return callback(e1, result);
+        });
     },
 
     delete: (id_abonnement, callback) => {
