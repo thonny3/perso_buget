@@ -23,6 +23,11 @@ const User = {
         db.query(sql, [data.nom, data.prenom, data.email, data.devise, data.image, id_user], callback);
     },
 
+    updatePassword: (id_user, hashedPassword, callback) => {
+        const sql = 'UPDATE Users SET mot_de_passe=? WHERE id_user=?';
+        db.query(sql, [hashedPassword, id_user], callback);
+    },
+
     delete: (id_user, callback) => {
         db.query('DELETE FROM Users WHERE id_user = ?', [id_user], callback);
     }

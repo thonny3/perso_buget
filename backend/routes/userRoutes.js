@@ -26,4 +26,7 @@ router.get('/:id', auth, userController.getUser);
 router.put('/:id', auth, upload.single('image'), userController.updateUser);
 router.delete('/:id', auth, userController.deleteUser);
 
+// Changer le mot de passe (utilisateur authentifié)
+router.post('/change-password', auth, userController.changePassword);
+
 module.exports = router;

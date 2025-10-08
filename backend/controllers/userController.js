@@ -183,6 +183,47 @@ const userController = {
                 } 
             });
         });
+    },
+
+    // Changer le mot de passe de l'utilisateur authentifié
+    changePassword: (req, res) => {
+        const userId = req.user.id_user;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                error: 'Champs manquants',
+                message: 'currentPassword et newPassword sont requis'
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                error: 'Mot de passe trop court',
+                message: 'Le nouveau mot de passe doit contenir au moins 6 caractères'
+            });
+        }
+
+        // Récupérer l'utilisateur pour vérifier l'ancien mot de passe
+        User.findById(userId, (err, users) => {
+            if (err) return res.status(500).json({ error: 'Erreur serveur', details: err });
+            if (users.length === 0) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+
+            const user = users[0];
+            const isValid = bcrypt.compareSync(currentPassword, user.mot_de_passe);
+            if (!isValid) {
+                return res.status(401).json({
+                    error: 'Mot de passe actuel incorrect',
+                    message: 'Le mot de passe actuel ne correspond pas'
+                });
+            }
+
+            const hashed = bcrypt.hashSync(newPassword, 10);
+            User.updatePassword(userId, hashed, (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: 'Erreur mise à jour', details: updateErr });
+                res.json({ message: 'Mot de passe mis à jour avec succès' });
+            });
+        });
     }
 };
 
