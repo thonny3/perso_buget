@@ -71,10 +71,23 @@ const Transferts = {
   transferCompteToCompte: (id_user, { id_compte_source, id_compte_cible, montant }, callback) => {
     db.beginTransaction((err) => {
       if (err) return callback(err);
-      db.query('SELECT solde FROM Comptes WHERE id_compte = ? AND id_user = ? FOR UPDATE', [id_compte_source, id_user], (e1, rowsS) => {
+      // Authorize if user owns the account or is contributor/proprietaire via Comptes_partages
+      const sqlSource = `
+        SELECT c.solde
+        FROM Comptes c
+        LEFT JOIN Comptes_partages cp ON cp.id_compte = c.id_compte AND cp.id_user = ? AND cp.role IN ('contributeur','proprietaire')
+        WHERE c.id_compte = ? AND (c.id_user = ? OR cp.id IS NOT NULL)
+        FOR UPDATE`;
+      db.query(sqlSource, [id_user, id_compte_source, id_user], (e1, rowsS) => {
         if (e1 || rowsS.length === 0) return db.rollback(() => callback(e1 || new Error('Compte source introuvable')));
         if (Number(rowsS[0].solde) <= 0 || Number(rowsS[0].solde) < Number(montant)) return db.rollback(() => callback(new Error('Solde source insuffisant')));
-        db.query('SELECT id_compte FROM Comptes WHERE id_compte = ? AND id_user = ? FOR UPDATE', [id_compte_cible, id_user], (e2, rowsT) => {
+        const sqlTarget = `
+          SELECT c.id_compte
+          FROM Comptes c
+          LEFT JOIN Comptes_partages cp ON cp.id_compte = c.id_compte AND cp.id_user = ? AND cp.role IN ('contributeur','proprietaire')
+          WHERE c.id_compte = ? AND (c.id_user = ? OR cp.id IS NOT NULL)
+          FOR UPDATE`;
+        db.query(sqlTarget, [id_user, id_compte_cible, id_user], (e2, rowsT) => {
           if (e2 || rowsT.length === 0) return db.rollback(() => callback(e2 || new Error('Compte cible introuvable')));
           db.query('UPDATE Comptes SET solde = solde - ? WHERE id_compte = ?', [montant, id_compte_source], (e3) => {
             if (e3) return db.rollback(() => callback(e3));

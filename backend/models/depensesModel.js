@@ -3,13 +3,50 @@ const db = require('../config/db');
 const Depenses = {
   getAll: (id_user, callback) => {
     db.query(
-      `SELECT d.*, c.nom AS categorie_nom, co.nom AS compte_nom
+      `SELECT d.*,
+              c.nom AS categorie_nom,
+              co.nom AS compte_nom,
+              u.prenom AS user_prenom,
+              u.nom AS user_nom,
+              u.email AS user_email,
+              u.image AS user_image
        FROM Depenses d
        LEFT JOIN categories_depenses c ON d.id_categorie_depense = c.id
        LEFT JOIN Comptes co ON d.id_compte = co.id_compte
+       LEFT JOIN Users u ON d.id_user = u.id_user
        WHERE d.id_user = ?
+          OR d.id_compte IN (
+            SELECT cp.id_compte FROM Comptes_partages cp WHERE cp.id_user = ?
+          )
        ORDER BY d.date_depense DESC`,
-      [id_user],
+      [id_user, id_user],
+      callback
+    );
+  },
+
+  getByAccountForUser: (id_user, id_compte, callback) => {
+    db.query(
+      `SELECT d.*,
+              c.nom AS categorie_nom,
+              co.nom AS compte_nom,
+              u.prenom AS user_prenom,
+              u.nom AS user_nom,
+              u.email AS user_email,
+              u.image AS user_image
+       FROM Depenses d
+       LEFT JOIN categories_depenses c ON d.id_categorie_depense = c.id
+       LEFT JOIN Comptes co ON d.id_compte = co.id_compte
+       LEFT JOIN Users u ON d.id_user = u.id_user
+       WHERE d.id_compte = ?
+         AND (
+           co.id_user = ?
+           OR EXISTS (
+             SELECT 1 FROM Comptes_partages cp
+             WHERE cp.id_compte = d.id_compte AND cp.id_user = ?
+           )
+         )
+       ORDER BY d.date_depense DESC`,
+      [id_compte, id_user, id_user],
       callback
     );
   },

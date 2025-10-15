@@ -4,6 +4,15 @@ const DepensesController = {
   getAll: (req, res) => {
     const id_user = req.user?.id_user;
     if (!id_user) return res.status(401).json({ message: "Non autorisé" });
+
+    const { id_compte } = req.query;
+    if (id_compte) {
+      return Depenses.getByAccountForUser(id_user, id_compte, (err, rows) => {
+        if (err) return res.status(500).json({ error: err });
+        res.json(rows);
+      });
+    }
+
     Depenses.getAll(id_user, (err, rows) => {
       if (err) return res.status(500).json({ error: err });
       res.json(rows);

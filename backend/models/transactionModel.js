@@ -2,10 +2,14 @@ const db = require('../config/db');
 
 const Transactions = {
     // Récupérer toutes les transactions d'un utilisateur
- getAllTransaction: (id_user, callback) => {
+ getAllTransaction: (id_user, filterUserId, callback) => {
   const sql = `
     SELECT 
       t.*,
+      u.prenom AS user_prenom,
+      u.nom AS user_nom,
+      u.email AS user_email,
+      u.image AS user_image,
       CASE 
         WHEN t.type = 'revenu' THEN c.nom
         WHEN t.type = 'depense' THEN cd.nom
@@ -36,7 +40,7 @@ const Transactions = {
         NULL AS id_objectif,
         'revenu' AS type
       FROM Revenus
-      WHERE id_user = ?
+      WHERE id_user = ? OR id_compte IN (SELECT id_compte FROM Comptes_partages WHERE id_user = ?)
 
       UNION ALL
 
@@ -52,7 +56,7 @@ const Transactions = {
         CASE WHEN cd.nom = 'Abonnements' THEN 'abonnement' ELSE 'depense' END AS type
       FROM Depenses d
       LEFT JOIN categories_depenses cd ON d.id_categorie_depense = cd.id
-      WHERE d.id_user = ?
+      WHERE d.id_user = ? OR d.id_compte IN (SELECT id_compte FROM Comptes_partages WHERE id_user = ?)
 
       UNION ALL
 
@@ -67,7 +71,7 @@ const Transactions = {
         id_objectif,
         'contribution' AS type
       FROM Contributions
-      WHERE id_user = ?
+      WHERE id_user = ? OR id_compte IN (SELECT id_compte FROM Comptes_partages WHERE id_user = ?)
 
       UNION ALL
 
@@ -83,7 +87,7 @@ const Transactions = {
         'remboursement_dette' AS type
       FROM Remboursements r
       LEFT JOIN Dettes d ON r.id_dette = d.id_dette
-      WHERE r.id_user = ?
+      WHERE r.id_user = ? OR r.id_compte IN (SELECT id_compte FROM Comptes_partages WHERE id_user = ?)
     ) AS t
     LEFT JOIN categories_revenus c 
       ON t.type = 'revenu' AND t.id_categorie = c.id
@@ -93,12 +97,22 @@ const Transactions = {
       ON t.id_compte = cp.id_compte
     LEFT JOIN Objectifs o
       ON t.type = 'contribution' AND t.id_objectif = o.id_objectif
+    LEFT JOIN Users u
+      ON u.id_user = t.id_user
+    WHERE (? IS NULL OR t.id_user = ?)
     ORDER BY t.date_transaction DESC
   `;
 
   db.query(sql, [
-    id_user, id_user, id_user, id_user, // all_dates subquery (Revenus, Depenses, Contributions, Remboursements)
-    id_user, id_user, id_user, id_user  // main UNION blocks (Revenus, Depenses, Contributions, Remboursements)
+    // all_dates subquery
+    id_user, id_user, id_user, id_user,
+    // main UNION blocks with shared inclusion
+    id_user, id_user,
+    id_user, id_user,
+    id_user, id_user,
+    id_user, id_user,
+    // optional user filter
+    (filterUserId ?? null), (filterUserId ?? null)
   ], callback);
 }
 

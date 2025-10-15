@@ -6,10 +6,18 @@ const RevenuesController = {
         const id_user = req.user?.id_user;
         if (!id_user) return res.status(401).json({ message: "Non autorisé" });
 
-        Revenues.getAll(id_user, (err, rows) => {
+    const { id_compte } = req.query;
+    if (id_compte) {
+        return Revenues.getByAccountForUser(id_user, id_compte, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows);
         });
+    }
+
+    Revenues.getAll(id_user, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
     },
 
     add: (req, res) => {

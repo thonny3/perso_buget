@@ -7,15 +7,48 @@ const Revenues = {
   // Récupérer tous les revenus d'un utilisateur
   getAll: (id_user, callback) => {
     db.query(
-      `SELECT r.*, 
-            c.nom AS categorie_nom,  -- nom de la catégorie de revenu
-            cp.nom AS compte_nom     -- nom du compte
-     FROM Revenus r
-     LEFT JOIN categories_revenus c ON r.id_categorie_revenu = c.id
-     LEFT JOIN Comptes cp ON r.id_compte = cp.id_compte
-     WHERE r.id_user = ?
-     ORDER BY r.date_revenu DESC`,
-      [id_user],
+      `SELECT r.*,
+              c.nom AS categorie_nom,
+              cp.nom AS compte_nom,
+              u.prenom AS user_prenom,
+              u.nom AS user_nom,
+              u.email AS user_email,
+              u.image AS user_image
+       FROM Revenus r
+       LEFT JOIN categories_revenus c ON r.id_categorie_revenu = c.id
+       LEFT JOIN Comptes cp ON r.id_compte = cp.id_compte
+       LEFT JOIN Users u ON r.id_user = u.id_user
+       WHERE r.id_user = ?
+          OR r.id_compte IN (
+            SELECT ct.id_compte FROM Comptes_partages ct WHERE ct.id_user = ?
+          )
+       ORDER BY r.date_revenu DESC`,
+      [id_user, id_user],
+      callback
+    );
+  },
+
+  getByAccountForUser: (id_user, id_compte, callback) => {
+    db.query(
+      `SELECT r.*,
+              c.nom AS categorie_nom,
+              cp.nom AS compte_nom,
+              u.prenom AS user_prenom,
+              u.nom AS user_nom,
+              u.email AS user_email,
+              u.image AS user_image
+       FROM Revenus r
+       LEFT JOIN categories_revenus c ON r.id_categorie_revenu = c.id
+       LEFT JOIN Comptes cp ON r.id_compte = cp.id_compte
+       LEFT JOIN Users u ON r.id_user = u.id_user
+       WHERE r.id_compte = ?
+         AND (
+           cp.id_user = ? OR EXISTS (
+             SELECT 1 FROM Comptes_partages ct WHERE ct.id_compte = r.id_compte AND ct.id_user = ?
+           )
+         )
+       ORDER BY r.date_revenu DESC`,
+      [id_compte, id_user, id_user],
       callback
     );
   },

@@ -52,12 +52,17 @@ const TransfertsController = {
           WHEN h.type = 'objectif_to_compte' THEN cc.nom
           WHEN h.type = 'compte_to_compte' THEN cc.nom
           ELSE NULL
-        END AS cible_nom
+        END AS cible_nom,
+        u.prenom AS user_prenom,
+        u.nom AS user_nom,
+        u.email AS user_email,
+        u.image AS user_image
       FROM TransfertsHistorique h
-      LEFT JOIN Comptes cs ON cs.id_compte = h.id_compte_source AND cs.id_user = h.id_user
-      LEFT JOIN Comptes cc ON cc.id_compte = h.id_compte_cible AND cc.id_user = h.id_user
-      LEFT JOIN Objectifs os ON os.id_objectif = h.id_objectif_source AND os.id_user = h.id_user
-      LEFT JOIN Objectifs oc ON oc.id_objectif = h.id_objectif_cible AND oc.id_user = h.id_user
+      LEFT JOIN Comptes cs ON cs.id_compte = h.id_compte_source
+      LEFT JOIN Comptes cc ON cc.id_compte = h.id_compte_cible
+      LEFT JOIN Objectifs os ON os.id_objectif = h.id_objectif_source
+      LEFT JOIN Objectifs oc ON oc.id_objectif = h.id_objectif_cible
+      LEFT JOIN Users u ON u.id_user = h.id_user
       WHERE h.id_user = ?
       ORDER BY h.date_transfert DESC
       LIMIT ?
