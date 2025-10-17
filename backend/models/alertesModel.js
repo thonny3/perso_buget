@@ -36,6 +36,11 @@ const Alertes = {
   delete: (id_alerte, callback) => {
     const sql = 'DELETE FROM Alertes WHERE id_alerte = ?';
     db.query(sql, [id_alerte], callback);
+  },
+
+  deleteOlderThan: (cutoffDate, callback) => {
+    const sql = 'DELETE FROM Alertes WHERE date_creation < ?';
+    db.query(sql, [cutoffDate], callback);
   }
 };
 

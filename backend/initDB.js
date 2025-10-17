@@ -146,6 +146,17 @@ db.connect(err => {
               parametres_specifiques JSON NULL,
               FOREIGN KEY (id_user) REFERENCES Users(id_user)
             )`;
+            const createAlertThresholdsTable = `
+            CREATE TABLE IF NOT EXISTS AlertThresholds (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              id_user INT NOT NULL,
+              domain ENUM('solde','comptes','depenses','budget','objectifs') NOT NULL,
+              value DECIMAL(12,2) NOT NULL,
+              info TEXT NULL,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE KEY uniq_user_domain (id_user, domain),
+              FOREIGN KEY (id_user) REFERENCES Users(id_user)
+            )`;
 const createContributionsTable = `
 CREATE TABLE IF NOT EXISTS Contributions (
   id_contribution INT PRIMARY KEY AUTO_INCREMENT,
@@ -263,6 +274,9 @@ CREATE TABLE IF NOT EXISTS Contributions (
                                                             dbBudget.query(createAlertesTable, async (err) => {
                                                                 if (err) throw err;
                                                                 console.log('Table Alertes OK');
+                                                                dbBudget.query(createAlertThresholdsTable, (err) => {
+                                                                    if (err) throw err;
+                                                                    console.log('Table AlertThresholds OK');
 
                                                                 dbBudget.query(createDettesTable, (err) => {
                                                                     if (err) throw err;

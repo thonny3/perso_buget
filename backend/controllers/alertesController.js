@@ -4,9 +4,13 @@ const AlertesController = {
   list: (req, res) => {
     const id_user = req.params.id_user || req.user?.id_user;
     if (!id_user) return res.status(400).json({ error: 'id_user requis' });
-    Alertes.getAllByUser(id_user, (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message || err });
-      res.json(rows);
+    // Purge des alertes de plus de 7 jours avant listing
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    Alertes.deleteOlderThan(cutoff, () => {
+      Alertes.getAllByUser(id_user, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message || err });
+        res.json(rows);
+      });
     });
   },
 
@@ -26,6 +30,10 @@ const AlertesController = {
     }
     Alertes.create(payload, (err, result) => {
       if (err) return res.status(500).json({ error: err.message || err });
+      try {
+        const io = req.app.get('io');
+        if (io) io.to(`user:${payload.id_user}`).emit('alert:new', { id_alerte: result.insertId, ...payload });
+      } catch (_e) {}
       res.json({ id_alerte: result.insertId });
     });
   },
