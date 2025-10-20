@@ -20,6 +20,7 @@ const transfertsRoutes = require('./routes/transfertsRoutes');
 const dettesRoutes = require('./routes/dettesRoutes');
 const investissementsRoutes = require('./routes/investissementsRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 
 
@@ -60,6 +61,7 @@ app.use('/api/alert-thresholds', auth, alertThresholdsRoutes);
 app.use('/api/dettes', auth, dettesRoutes);
 app.use('/api/investissements', auth, investissementsRoutes);
 app.use('/api/dashboard', auth, dashboardRoutes);
+app.use('/api/admin', auth, adminRoutes);
 
 // Endpoint de santé pour les tests de connectivité
 app.get('/api/health', (req, res) => {

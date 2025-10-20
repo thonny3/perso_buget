@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const auth = require('../middlewares/auth');
+const { isAdmin } = require('../middlewares/auth');
 const multer = require('multer');
 
 // Config multer pour upload images
@@ -25,10 +26,10 @@ router.post('/reset-password-otp', userController.resetPasswordWithOtp);
 
 // Routes protégées
 router.get('/verify', auth, userController.verify);
-router.get('/', auth, userController.getAllUsers);
+router.get('/', auth, isAdmin, userController.getAllUsers);
 router.get('/:id', auth, userController.getUser);
-router.put('/:id', auth, upload.single('image'), userController.updateUser);
-router.delete('/:id', auth, userController.deleteUser);
+router.put('/:id', auth, isAdmin, upload.single('image'), userController.updateUser);
+router.delete('/:id', auth, isAdmin, userController.deleteUser);
 
 // Changer le mot de passe (utilisateur authentifié)
 router.post('/change-password', auth, userController.changePassword);

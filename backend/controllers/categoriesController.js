@@ -25,6 +25,16 @@ const Categories = {
     });
   },
 
+  update: (req, res) => {
+    const { id } = req.params;
+    const { nom } = req.body;
+    if (!nom) return res.status(400).json({ error: 'nom requis' });
+    categorie.updateDepenses(id, nom, (err) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json({ message: 'Catégorie mise à jour' });
+    });
+  },
+
   /*******************************CATEGORIES REVENUES************************************* */
   allRevenues: (req, res) => {
     categorie.allRevenue((err, rows) => {
@@ -46,6 +56,16 @@ const Categories = {
     categorie.deleteRevenue(id, (err) => {
       if (err) return res.status(500).json({ error: err });
       res.json({ message: 'Catégorie supprimée' });
+    });
+  },
+
+  updateRevenues: (req, res) => {
+    const { id } = req.params;
+    const { nom } = req.body;
+    if (!nom) return res.status(400).json({ error: 'nom requis' });
+    categorie.updateRevenue(id, nom, (err) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json({ message: 'Catégorie mise à jour' });
     });
   },
 

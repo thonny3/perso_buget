@@ -14,6 +14,10 @@ const Categorie = {
         db.query('DELETE FROM categories_revenus WHERE id = ?', [id], callback);
     },
 
+    updateRevenue: (id, nom, callback) => {
+        db.query('UPDATE categories_revenus SET nom = ? WHERE id = ?', [nom, id], callback);
+    },
+
     // --- CATEGORIES DE DEPENSES ---
     allDepenses: (callback) => {
         db.query('SELECT * FROM categories_depenses ORDER BY id ASC', callback);
@@ -26,6 +30,10 @@ const Categorie = {
     deleteDepenses: (id, callback) => {
 
         db.query('DELETE FROM categories_depenses WHERE id = ?', [id], callback);
+    },
+
+    updateDepenses: (id, nom, callback) => {
+        db.query('UPDATE categories_depenses SET nom = ? WHERE id = ?', [nom, id], callback);
     }
 }
 

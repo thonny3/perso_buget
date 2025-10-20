@@ -19,8 +19,8 @@ const User = {
     },
 
     update: (id_user, data, callback) => {
-        const sql = 'UPDATE Users SET nom=?, prenom=?, email=?, devise=?, image=? WHERE id_user=?';
-        db.query(sql, [data.nom, data.prenom, data.email, data.devise, data.image, id_user], callback);
+        const sql = 'UPDATE Users SET nom=?, prenom=?, email=?, devise=?, image=?, actif=COALESCE(?, actif) WHERE id_user=?';
+        db.query(sql, [data.nom, data.prenom, data.email, data.devise, data.image, data.actif, id_user], callback);
     },
 
     updatePassword: (id_user, hashedPassword, callback) => {

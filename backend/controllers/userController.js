@@ -282,6 +282,12 @@ const userController = {
             }
 
             const user = users[0];
+            if (user.actif === 0) {
+                return res.status(403).json({ 
+                    error: 'Compte inactif',
+                    message: 'Votre compte est désactivé. Contactez un administrateur.'
+                });
+            }
             
             // Vérifier le mot de passe
             if (!bcrypt.compareSync(password, user.mot_de_passe)) {
@@ -304,7 +310,8 @@ const userController = {
                     email: user.email, 
                     devise: user.devise, 
                     image: user.image, 
-                    role: user.role 
+                    role: user.role,
+                    actif: user.actif
                 } 
             });
         });
@@ -328,11 +335,42 @@ const userController = {
 
     updateUser: (req, res) => {
         const id = req.params.id;
-        const { nom, prenom, email, devise } = req.body;
-        const image = req.file ? req.file.filename : null;
-        User.update(id, { nom, prenom, email, devise, image }, (err) => {
-            if (err) return res.status(500).json({ error: err });
-            res.json({ message: 'Utilisateur mis à jour' });
+        const rawActif = req.body?.actif;
+        const requestedActif = typeof rawActif === 'string' ? (rawActif === '1' || rawActif.toLowerCase() === 'true') : (rawActif === 1 || rawActif === true) ? true : (rawActif === 0 || rawActif === false) ? false : undefined;
+        const fields = {
+            nom: req.body?.nom,
+            prenom: req.body?.prenom,
+            email: req.body?.email,
+            devise: req.body?.devise,
+            image: req.file ? req.file.filename : null,
+            actif: requestedActif
+        };
+
+        // Récupérer l'utilisateur courant pour décider des droits de mise à jour
+        User.findById(id, (findErr, rows) => {
+            if (findErr) return res.status(500).json({ error: findErr });
+            if (!rows || rows.length === 0) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+            const current = rows[0];
+
+            const isCurrentlyInactive = current.actif === 0;
+            const isDeactivating = requestedActif === false;
+
+            // Règles:
+            // - Si le compte est déjà inactif: seul 'actif' peut être modifié
+            // - Si on désactive (actif -> false): seule la colonne 'actif' doit changer dans cette requête
+            if (isCurrentlyInactive || isDeactivating) {
+                // Conserver les valeurs actuelles pour empêcher toute modification autre que 'actif'
+                fields.nom = current.nom;
+                fields.prenom = current.prenom;
+                fields.email = current.email;
+                fields.devise = current.devise;
+                fields.image = current.image;
+            }
+
+            User.update(id, fields, (err) => {
+                if (err) return res.status(500).json({ error: err });
+                res.json({ message: 'Utilisateur mis à jour' });
+            });
         });
     },
 

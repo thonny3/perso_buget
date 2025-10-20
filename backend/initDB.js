@@ -37,6 +37,7 @@ db.connect(err => {
                 devise VARCHAR(10) DEFAULT 'MGA',
                 image VARCHAR(255),
                 role ENUM('admin','user') DEFAULT 'user',
+                actif BOOLEAN DEFAULT TRUE,
                 date_creation DATETIME DEFAULT CURRENT_TIMESTAMP
             )`;
 
@@ -364,7 +365,7 @@ CREATE TABLE IF NOT EXISTS Contributions (
                                                                                             // ---------- CRÉATION COMPTE ADMIN ----------
                                                                                             const email = "admin@jalako.com";
                                                                                             const plainPassword = "admin123";
-                                                                                            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+                                                                                            const hashedPassword = bcrypt.hashSync(plainPassword, 10);
 
                                                                                             const insertAdmin = `
                                                             INSERT INTO Users (nom, prenom, email, mot_de_passe, role, devise)
@@ -423,4 +424,11 @@ CREATE TABLE IF NOT EXISTS Contributions (
                                         });
                                     });
                                 });
-
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
