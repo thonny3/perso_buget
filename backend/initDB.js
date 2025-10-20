@@ -157,7 +157,7 @@ db.connect(err => {
               UNIQUE KEY uniq_user_domain (id_user, domain),
               FOREIGN KEY (id_user) REFERENCES Users(id_user)
             )`;
-const createContributionsTable = `
+            const createContributionsTable = `
 CREATE TABLE IF NOT EXISTS Contributions (
   id_contribution INT PRIMARY KEY AUTO_INCREMENT,
   id_objectif INT NOT NULL,
@@ -198,6 +198,66 @@ CREATE TABLE IF NOT EXISTS Contributions (
               FOREIGN KEY (id_dette) REFERENCES Dettes(id_dette) ON DELETE CASCADE,
               FOREIGN KEY (id_user) REFERENCES Users(id_user),
               FOREIGN KEY (id_compte) REFERENCES Comptes(id_compte)
+            )`;
+
+            const createInvestissementsTable = `
+            CREATE TABLE IF NOT EXISTS Investissements (
+              id_investissement INT PRIMARY KEY AUTO_INCREMENT,
+              id_user INT NOT NULL,
+              nom VARCHAR(200) NOT NULL,
+              type VARCHAR(50) DEFAULT 'immobilier',
+              projet VARCHAR(255),
+              date_achat DATE NOT NULL,
+              montant_investi DECIMAL(12,2) NOT NULL,
+              valeur_actuelle DECIMAL(12,2) DEFAULT NULL,
+              duree_mois INT DEFAULT NULL,
+              taux_prevu DECIMAL(6,2) DEFAULT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (id_user) REFERENCES Users(id_user)
+            )`;
+
+            const createInvestRevenusTable = `
+            CREATE TABLE IF NOT EXISTS Investissements_Revenus (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              id_investissement INT NOT NULL,
+              id_user INT NOT NULL,
+              montant DECIMAL(12,2) NOT NULL,
+              date_revenu DATE NOT NULL,
+              type VARCHAR(50),
+              note TEXT,
+              id_compte INT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (id_investissement) REFERENCES Investissements(id_investissement) ON DELETE CASCADE,
+              FOREIGN KEY (id_user) REFERENCES Users(id_user),
+              FOREIGN KEY (id_compte) REFERENCES Comptes(id_compte)
+            )`;
+
+            const createInvestDepensesTable = `
+            CREATE TABLE IF NOT EXISTS Investissements_Depenses (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              id_investissement INT NOT NULL,
+              id_user INT NOT NULL,
+              montant DECIMAL(12,2) NOT NULL,
+              date_depense DATE NOT NULL,
+              type VARCHAR(50),
+              note TEXT,
+              id_compte INT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (id_investissement) REFERENCES Investissements(id_investissement) ON DELETE CASCADE,
+              FOREIGN KEY (id_user) REFERENCES Users(id_user),
+              FOREIGN KEY (id_compte) REFERENCES Comptes(id_compte)
+            )`;
+
+            const createPasswordResetsTable = `
+            CREATE TABLE IF NOT EXISTS PasswordResets (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              id_user INT NOT NULL,
+              token VARCHAR(255) NOT NULL,
+              expires_at DATETIME NOT NULL,
+              used BOOLEAN DEFAULT FALSE,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (id_user) REFERENCES Users(id_user),
+              UNIQUE KEY uniq_token (token)
             )`;
 
             // ---------- CRÉATION DES TABLES ET INSERTIONS ----------
@@ -278,74 +338,89 @@ CREATE TABLE IF NOT EXISTS Contributions (
                                                                     if (err) throw err;
                                                                     console.log('Table AlertThresholds OK');
 
-                                                                dbBudget.query(createDettesTable, (err) => {
-                                                                    if (err) throw err;
-                                                                    console.log('Table Dettes OK');
-
-                                                                    dbBudget.query(createRemboursementsTable, (err) => {
+                                                                    dbBudget.query(createDettesTable, (err) => {
                                                                         if (err) throw err;
-                                                                        console.log('Table Remboursements OK');
+                                                                        console.log('Table Dettes OK');
 
-                                                            // ---------- CRÉATION COMPTE ADMIN ----------
-                                                            const email = "admin@jalako.com";
-                                                            const plainPassword = "admin123";
-                                                            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+                                                                        dbBudget.query(createRemboursementsTable, (err) => {
+                                                                            if (err) throw err;
+                                                                            console.log('Table Remboursements OK');
 
-                                                            const insertAdmin = `
+                                                                            dbBudget.query(createInvestissementsTable, (err) => {
+                                                                                if (err) throw err;
+                                                                                console.log('Table Investissements OK');
+
+                                                                                dbBudget.query(createInvestRevenusTable, (err) => {
+                                                                                    if (err) throw err;
+                                                                                    console.log('Table Investissements_Revenus OK');
+
+                                                                                    dbBudget.query(createInvestDepensesTable, (err) => {
+                                                                                        if (err) throw err;
+                                                                                        console.log('Table Investissements_Depenses OK');
+                                                                                        dbBudget.query(createPasswordResetsTable, (err) => {
+                                                                                            if (err) throw err;
+                                                                                            console.log('Table PasswordResets OK');
+
+                                                                                            // ---------- CRÉATION COMPTE ADMIN ----------
+                                                                                            const email = "admin@jalako.com";
+                                                                                            const plainPassword = "admin123";
+                                                                                            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+                                                                                            const insertAdmin = `
                                                             INSERT INTO Users (nom, prenom, email, mot_de_passe, role, devise)
                                                             VALUES ('Admin', 'User', ?, ?, 'admin', 'MGA')
                                                             ON DUPLICATE KEY UPDATE email=email`;
 
-                                                            dbBudget.query(insertAdmin, [email, hashedPassword], (err) => {
-                                                                if (err) throw err;
-                                                                console.log("Compte admin ajouté");
+                                                                                            dbBudget.query(insertAdmin, [email, hashedPassword], (err) => {
+                                                                                                if (err) throw err;
+                                                                                                console.log("Compte admin ajouté");
 
-                                                                dbBudget.query(`SELECT id_user FROM Users WHERE email = ? LIMIT 1`, [email], (err, rows) => {
-                                                                    if (err) throw err;
-                                                                    const adminId = rows[0].id_user;
+                                                                                                dbBudget.query(`SELECT id_user FROM Users WHERE email = ? LIMIT 1`, [email], (err, rows) => {
+                                                                                                    if (err) throw err;
+                                                                                                    const adminId = rows[0].id_user;
 
-                                                                    const insertCompte = `
+                                                                                                    const insertCompte = `
                                                                     INSERT INTO Comptes (id_user, nom, solde, type)
                                                                     VALUES (?, 'Compte principal', 0.00, 'courant')
                                                                     ON DUPLICATE KEY UPDATE id_user=id_user`;
 
-                                                                    dbBudget.query(insertCompte, [adminId], (err, result) => {
-                                                                        if (err) throw err;
-                                                                        console.log("Compte admin par défaut créé");
+                                                                                                    dbBudget.query(insertCompte, [adminId], (err, result) => {
+                                                                                                        if (err) throw err;
+                                                                                                        console.log("Compte admin par défaut créé");
 
-                                                                        const compteId = result.insertId || 1;
+                                                                                                        const compteId = result.insertId || 1;
 
-                                                                        const insertPartage = `
+                                                                                                        const insertPartage = `
                                                                         INSERT INTO Comptes_partages (id_compte, id_user, role)
                                                                         VALUES (?, ?, 'owner')
                                                                         ON DUPLICATE KEY UPDATE role=role`;
 
-                                                                        dbBudget.query(insertPartage, [compteId, adminId], (err) => {
-                                                                            if (err) throw err;
-                                                                            console.log("Admin ajouté dans Comptes_partages (owner)");
-                                                                            process.exit();
+                                                                                                        dbBudget.query(insertPartage, [compteId, adminId], (err) => {
+                                                                                                            if (err) throw err;
+                                                                                                            console.log("Admin ajouté dans Comptes_partages (owner)");
+                                                                                                            process.exit();
+                                                                                                        });
+                                                                                                    });
+                                                                                                });
+                                                                                            });
+                                                                                        });
+                                                                                    });
+                                                                                });
+                                                                            });
                                                                         });
                                                                     });
                                                                 });
                                                             });
                                                         });
                                                     });
+                                                    dbBudget.query(createContributionsTable, (err) => {
+                                                        if (err) throw err;
+                                                        console.log('Table Contributions OK');
+                                                    });
+
                                                 });
                                             });
                                         });
                                     });
                                 });
-                            });
-                        });
-                    });
-                    dbBudget.query(createContributionsTable, (err) => {
-    if (err) throw err;
-    console.log('Table Contributions OK');
-});
-
-                });
-            });
-        });
-    });
-});
 

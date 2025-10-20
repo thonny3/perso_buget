@@ -18,6 +18,8 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const contributionRoutes = require('./routes/contributionRoutes');
 const transfertsRoutes = require('./routes/transfertsRoutes');
 const dettesRoutes = require('./routes/dettesRoutes');
+const investissementsRoutes = require('./routes/investissementsRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 
 
@@ -56,6 +58,8 @@ app.use('/api/abonnements', auth, abonnementRoutes);
 app.use('/api/alertes', auth, alertesRoutes);
 app.use('/api/alert-thresholds', auth, alertThresholdsRoutes);
 app.use('/api/dettes', auth, dettesRoutes);
+app.use('/api/investissements', auth, investissementsRoutes);
+app.use('/api/dashboard', auth, dashboardRoutes);
 
 // Endpoint de santé pour les tests de connectivité
 app.get('/api/health', (req, res) => {

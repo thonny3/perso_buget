@@ -2,6 +2,9 @@ const User = require('../models/userModel');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+const crypto = require('crypto');
+const { sendEmail } = require('../services/emailService');
+
 const userController = {
     register: (req, res) => {
         const { nom, prenom, email, password, currency } = req.body;
@@ -70,6 +73,186 @@ const userController = {
                         email,
                         devise: currency
                     }
+                });
+            });
+        });
+    },
+    forgotPassword: (req, res) => {
+        const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+        if (!email) return res.status(400).json({ error: 'Email requis' });
+
+        User.findByEmail(email, (err, users) => {
+            if (err) return res.status(500).json({ error: 'Erreur serveur', details: err });
+            if (users.length === 0) {
+                // Ne pas révéler si l'email existe ou non
+                return res.json({ message: 'Si un compte existe, un email a été envoyé' });
+                return res.json({ message: email });
+                
+            }
+            const user = users[0];
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 minutes
+
+            User.createPasswordReset(user.id_user, token, expiresAt, async (prErr) => {
+                if (prErr) return res.status(500).json({ error: 'Erreur génération lien', details: prErr });
+                try {
+                    const baseUrl = process.env.FRONTEND_BASE_URL || 'http://localhost:3000';
+                    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+                    await sendEmail({
+                        to: email,
+                        subject: 'Réinitialisation de mot de passe',
+                        text: `Pour réinitialiser votre mot de passe, cliquez sur le lien: ${resetUrl}`,
+                        html: `<p>Pour réinitialiser votre mot de passe, cliquez sur le lien:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`
+                    });
+                    console.log('Email envoyé:', email);
+                } catch (e) {
+                    // Continue même si email non envoyé (mode dry-run)
+                    console.log('Erreur email:', e);
+                }
+                res.json({ message: 'Si un compte existe, un email a été envoyé' });
+            });
+        });
+    },
+    resetPassword: (req, res) => {
+        const { token, newPassword } = req.body;
+        if (!token || !newPassword) return res.status(400).json({ error: 'Token et nouveau mot de passe requis' });
+        if (newPassword.length < 6) return res.status(400).json({ error: 'Mot de passe trop court' });
+
+        User.findPasswordResetByToken(token, (err, rows) => {
+            if (err) return res.status(500).json({ error: 'Erreur serveur', details: err });
+            if (!rows || rows.length === 0) return res.status(400).json({ error: 'Token invalide' });
+            const pr = rows[0];
+            if (pr.used) return res.status(400).json({ error: 'Token déjà utilisé' });
+            if (new Date(pr.expires_at) < new Date()) return res.status(400).json({ error: 'Token expiré' });
+
+            const hashed = bcrypt.hashSync(newPassword, 10);
+            User.updatePassword(pr.id_user, hashed, (upErr) => {
+                if (upErr) return res.status(500).json({ error: 'Erreur mise à jour', details: upErr });
+                User.markPasswordResetUsed(pr.id, (muErr) => {
+                    if (muErr) return res.status(500).json({ error: 'Erreur finalisation', details: muErr });
+                    res.json({ message: 'Mot de passe réinitialisé avec succès' });
+                });
+            });
+        });
+    },
+
+    // OTP flow: send 6-digit code to email
+    forgotPasswordOtp: (req, res) => {
+        const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+        if (!email) return res.status(400).json({ error: 'Email requis' });
+
+        User.findByEmail(email, (err, users) => {
+            if (err) return res.status(500).json({ error: 'Erreur serveur', details: err });
+            if (users.length === 0) {
+                const debug = process.env.DEBUG_EMAIL === '1';
+                return res.json({
+                    message: 'Si un compte existe, un code a été envoyé',
+                    success: true,
+                    sent: true, // on ne révèle pas l'existence du compte
+                    info: null,
+                    ...(debug ? { debug: true, userFound: false } : {})
+                });
+            }
+            const user = users[0];
+            const otp = String(Math.floor(100000 + Math.random() * 900000));
+            const expiresAt = new Date(Date.now() + 1000 * 60 * 10); // 10 minutes
+
+            User.createPasswordReset(user.id_user, otp, expiresAt, async (prErr) => {
+                if (prErr) return res.status(500).json({ error: 'Erreur génération code', details: prErr });
+                try {
+                    const appName = process.env.APP_NAME || 'MyJalako';
+                    const logoUrl = process.env.EMAIL_LOGO_URL || '';
+                    const brand = (process.env.APP_BRAND_COLOR || '#10B981');
+                    const html = `
+                      <div style="font-family:Inter,Segoe UI,Arial,sans-serif;background:#f8fafc;padding:24px">
+                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
+                          <tr>
+                            <td style="background:${brand};padding:20px 24px;text-align:center">
+                              ${logoUrl ? `<img src="${logoUrl}" alt="${appName}" style="height:42px;object-fit:contain;display:inline-block" />` : `<div style=\"color:#ffffff;font-size:20px;font-weight:700\">${appName}</div>`}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:24px 24px 8px 24px">
+                              <div style="font-size:20px;line-height:28px;color:#111827;font-weight:700;margin:0 0 8px 0">Code de réinitialisation</div>
+                              <div style="font-size:14px;line-height:20px;color:#374151;margin:0">Utilisez ce code pour réinitialiser votre mot de passe. Il expire dans 10 minutes.</div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:8px 24px 24px 24px;text-align:center">
+                              <div style="display:inline-block;background:#111827;color:#ffffff;border-radius:12px;padding:12px 16px;font-size:24px;font-weight:700;letter-spacing:6px">${otp}</div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:0 24px 24px 24px;color:#6b7280;font-size:12px">
+                              Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:16px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;text-align:center">
+                              © ${new Date().getFullYear()} ${appName}. Tous droits réservés.
+                            </td>
+                          </tr>
+                        </table>
+                      </div>`;
+                    const emailResp = await sendEmail({
+                        to: email,
+                        subject: 'Code de réinitialisation (OTP)',
+                        text: `Votre code de réinitialisation est: ${otp}. Il expire dans 10 minutes.`,
+                        html
+                    });
+                    if (process.env.DEBUG_EMAIL === '1') {
+                        console.log('[ForgotPasswordOtp] sendEmail response', emailResp);
+                    }
+                    const debug = process.env.DEBUG_EMAIL === '1';
+                    return res.json({
+                        message: 'Si un compte existe, un code a été envoyé',
+                        success: true,
+                        sent: !!emailResp?.sent,
+                        info: emailResp?.reason || null,
+                        ...(debug ? { debug: true, userFound: true, attemptedSend: true } : {})
+                    });
+                } catch (_e) {
+                    if (process.env.DEBUG_EMAIL === '1') {
+                        console.error('[ForgotPasswordOtp] email send error', _e);
+                    }
+                    return res.json({
+                        message: 'Si un compte existe, un code a été envoyé',
+                        success: true,
+                        sent: false,
+                        info: 'send_error',
+                        ...(process.env.DEBUG_EMAIL === '1' ? { debug: true, userFound: true, attemptedSend: true } : {})
+                    });
+                }
+            });
+        });
+    },
+    // Verify OTP and set new password
+    resetPasswordWithOtp: (req, res) => {
+        const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+        const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+        const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
+        if (!email || !code || !newPassword) return res.status(400).json({ error: 'Champs requis manquants' });
+        if (newPassword.length < 6) return res.status(400).json({ error: 'Mot de passe trop court' });
+
+        User.findByEmail(email, (err, users) => {
+            if (err) return res.status(500).json({ error: 'Erreur serveur', details: err });
+            if (users.length === 0) return res.status(400).json({ error: 'Code invalide' });
+            const user = users[0];
+            User.findPasswordResetByToken(code, (prErr, rows) => {
+                if (prErr) return res.status(500).json({ error: 'Erreur serveur', details: prErr });
+                if (!rows || rows.length === 0) return res.status(400).json({ error: 'Code invalide' });
+                const pr = rows[0];
+                if (pr.id_user !== user.id_user) return res.status(400).json({ error: 'Code invalide' });
+                if (pr.used) return res.status(400).json({ error: 'Code déjà utilisé' });
+                if (new Date(pr.expires_at) < new Date()) return res.status(400).json({ error: 'Code expiré' });
+
+                const hashed = bcrypt.hashSync(newPassword, 10);
+                User.updatePassword(user.id_user, hashed, (upErr) => {
+                    if (upErr) return res.status(500).json({ error: 'Erreur mise à jour', details: upErr });
+                    User.markPasswordResetUsed(pr.id, (muErr) => {
+                        if (muErr) return res.status(500).json({ error: 'Erreur finalisation', details: muErr });
+                        res.json({ message: 'Mot de passe réinitialisé avec succès' });
+                    });
                 });
             });
         });

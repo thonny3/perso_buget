@@ -18,6 +18,10 @@ router.use(express.json());
 // Public routes
 router.post('/register', userController.register);
 router.post('/login', userController.login);
+router.post('/forgot-password', userController.forgotPassword);
+router.post('/reset-password', userController.resetPassword);
+router.post('/forgot-password-otp', userController.forgotPasswordOtp);
+router.post('/reset-password-otp', userController.resetPasswordWithOtp);
 
 // Routes protégées
 router.get('/verify', auth, userController.verify);

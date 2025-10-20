@@ -30,6 +30,20 @@ const User = {
 
     delete: (id_user, callback) => {
         db.query('DELETE FROM Users WHERE id_user = ?', [id_user], callback);
+    },
+
+    // Password reset helpers
+    createPasswordReset: (id_user, token, expiresAt, callback) => {
+        const sql = 'INSERT INTO PasswordResets (id_user, token, expires_at) VALUES (?, ?, ?)';
+        db.query(sql, [id_user, token, expiresAt], callback);
+    },
+    findPasswordResetByToken: (token, callback) => {
+        const sql = 'SELECT * FROM PasswordResets WHERE token = ? LIMIT 1';
+        db.query(sql, [token], callback);
+    },
+    markPasswordResetUsed: (id, callback) => {
+        const sql = 'UPDATE PasswordResets SET used = TRUE WHERE id = ?';
+        db.query(sql, [id], callback);
     }
 };
 

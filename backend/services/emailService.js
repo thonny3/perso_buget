@@ -15,13 +15,23 @@ try {
 }
 
 async function sendEmail({ to, subject, text, html }) {
-  if (!to || !subject) return { sent: false, reason: 'missing_params' };
-  if (!transporter) {
-    console.log('[EmailService] (dry-run) To:', to, 'Subject:', subject);
-    return { sent: false, reason: 'transporter_unavailable' };
+  try {
+    if (!to || !subject) return { sent: false, reason: 'missing_params' };
+    if (!transporter) {
+      console.log('[EmailService] (dry-run) To:', to, 'Subject:', subject);
+      return { sent: false, reason: 'transporter_unavailable' };
+    }
+    const info = await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text, html });
+    if (process.env.DEBUG_EMAIL === '1') {
+      console.log('[EmailService] sent', { to, subject, messageId: info?.messageId });
+    }
+    return { sent: true, info };
+  } catch (err) {
+    if (process.env.DEBUG_EMAIL === '1') {
+      console.error('[EmailService] send error', err);
+    }
+    throw err;
   }
-  await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text, html });
-  return { sent: true };
 }
 
 module.exports = { sendEmail };
