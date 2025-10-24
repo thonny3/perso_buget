@@ -397,6 +397,25 @@ export const dashboardService = {
     }
   },
 
+  // Obtenir le résumé du dashboard (méthode principale)
+  getSummary: async () => {
+    try {
+      const response = await apiClient.get('/dashboard/summary');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors du chargement du résumé:', error);
+      return {
+        totalBalance: 0,
+        monthlyIncome: 0,
+        monthlyExpenses: 0,
+        goalsAchieved: 0,
+        revenueData: [],
+        expenseCategories: [],
+        recentTransactions: []
+      };
+    }
+  },
+
   // Obtenir les données complètes du dashboard
   getDashboardData: async () => {
     try {

@@ -1,72 +1,83 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import { dashboardService, authService } from '../services/apiService';
 
 const DashboardStats = () => {
+  const [dashboardData, setDashboardData] = useState({
+    totalBalance: 0,
+    monthlyIncome: 0,
+    monthlyExpenses: 0,
+    goalsAchieved: 0,
+    revenueData: [],
+    expenseCategories: [],
+    recentTransactions: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [userDevise, setUserDevise] = useState('EUR'); // Devise par défaut
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Récupérer d'abord les informations de l'utilisateur pour obtenir sa devise
+      const userResult = await authService.getCurrentUser();
+      if (userResult.success && userResult.data.devise) {
+        setUserDevise(userResult.data.devise);
+      }
+      
+      const data = await dashboardService.getSummary();
+      if (data) {
+        setDashboardData(data);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des données:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    const deviseAffichage = userDevise === 'MGA' ? 'Ar' : userDevise;
+    return Number(amount || 0).toLocaleString('fr-FR') + ' ' + deviseAffichage;
+  };
+
   const statsData = [
     {
       title: 'Solde Total',
-      value: '25,430 €',
-      change: '+12.5%',
+      value: formatCurrency(dashboardData.totalBalance),
+      change: '',
       changeType: 'positive',
       icon: 'wallet',
       color: '#3b82f6'
     },
     {
-      title: 'Revenus ce mois',
-      value: '8,520 €',
-      change: '+8.2%',
+      title: 'Revenus du mois',
+      value: formatCurrency(dashboardData.monthlyIncome),
+      change: '',
       changeType: 'positive',
       icon: 'trending-up',
       color: '#22c55e'
     },
     {
-      title: 'Dépenses ce mois',
-      value: '3,240 €',
-      change: '-15.1%',
+      title: 'Dépenses du mois',
+      value: formatCurrency(dashboardData.monthlyExpenses),
+      change: '',
       changeType: 'negative',
       icon: 'credit-card',
       color: '#f97316'
     },
     {
-      title: 'Épargne',
-      value: '12,890 €',
-      change: '+5.4%',
+      title: 'Objectifs atteints',
+      value: dashboardData.goalsAchieved.toString(),
+      change: '',
       changeType: 'positive',
-      icon: 'piggy-bank',
-      color: '#a855f7'
-    },
-    {
-      title: 'Budget mensuel',
-      value: '4,500 €',
-      change: '72%',
-      changeType: 'neutral',
-      icon: 'pie-chart',
-      color: '#06b6d4'
-    },
-    {
-      title: 'Investissements',
-      value: '5,200 €',
-      change: '+3.2%',
-      changeType: 'positive',
-      icon: 'trending-up',
-      color: '#8b5cf6'
-    },
-    {
-      title: 'Dettes',
-      value: '1,800 €',
-      change: '-8.5%',
-      changeType: 'positive',
-      icon: 'credit-card',
-      color: '#ef4444'
-    },
-    {
-      title: 'Objectifs',
-      value: '3/5',
-      change: '60%',
-      changeType: 'neutral',
       icon: 'target',
-      color: '#f59e0b'
+      color: '#a855f7'
     }
   ];
 
@@ -96,29 +107,23 @@ const DashboardStats = () => {
     </View>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Chargement des données...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
         {/* Section Principale */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vue d'ensemble</Text>
           <View style={styles.statsGrid}>
-            {statsData.slice(0, 4).map((stat, index) => renderStatCard(stat, index))}
-          </View>
-        </View>
-
-        {/* Section Budget */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Budget & Planification</Text>
-          <View style={styles.statsGrid}>
-            {statsData.slice(4, 6).map((stat, index) => renderStatCard(stat, index + 4))}
-          </View>
-        </View>
-
-        {/* Section Financière */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Situation financière</Text>
-          <View style={styles.statsGrid}>
-            {statsData.slice(6, 8).map((stat, index) => renderStatCard(stat, index + 6))}
+            {statsData.map((stat, index) => renderStatCard(stat, index))}
           </View>
         </View>
     </View>
@@ -205,6 +210,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6b7280',
   },
 });
 

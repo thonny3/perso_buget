@@ -5,6 +5,7 @@ import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardStats from './DashboardStats';
 import DashboardContent from './DashboardContent';
+import DashboardCharts from './DashboardCharts';
 import PortefeuilleScreen from './screens/PortefeuilleScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import BudgetScreen from './screens/BudgetScreen';
@@ -82,6 +83,7 @@ const Dashboard = ({ onLogout }) => {
         return (
           <>
             <DashboardStats />
+            <DashboardCharts />
             <DashboardContent />
           </>
         );
@@ -105,6 +107,7 @@ const Dashboard = ({ onLogout }) => {
         return (
           <>
             <DashboardStats />
+            <DashboardCharts />
             <DashboardContent />
           </>
         );

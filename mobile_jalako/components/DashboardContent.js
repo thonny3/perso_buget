@@ -1,22 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import { dashboardService, authService } from '../services/apiService';
 
 const DashboardContent = () => {
-  const recentTransactions = [
-    { id: 1, description: 'Salaire - Entreprise XYZ', amount: '+3,500 €', date: '2024-08-10', type: 'income' },
-    { id: 2, description: 'Achat Carrefour', amount: '-85.30 €', date: '2024-08-09', type: 'expense' },
-    { id: 3, description: 'Virement épargne', amount: '-500 €', date: '2024-08-08', type: 'transfer' },
-    { id: 4, description: 'Remboursement santé', amount: '+125.80 €', date: '2024-08-07', type: 'income' },
-    { id: 5, description: 'Abonnement Netflix', amount: '-13.49 €', date: '2024-08-06', type: 'expense' },
-  ];
+  const [dashboardData, setDashboardData] = useState({
+    recentTransactions: [],
+    expenseCategories: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [userDevise, setUserDevise] = useState('EUR'); // Devise par défaut
 
-  const monthlyBudget = [
-    { category: 'Alimentation', budget: 500, spent: 420, percentage: 84 },
-    { category: 'Transport', budget: 200, spent: 180, percentage: 90 },
-    { category: 'Logement', budget: 800, spent: 800, percentage: 100 },
-    { category: 'Loisirs', budget: 300, spent: 250, percentage: 83 },
-  ];
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Récupérer d'abord les informations de l'utilisateur pour obtenir sa devise
+      const userResult = await authService.getCurrentUser();
+      if (userResult.success && userResult.data.devise) {
+        setUserDevise(userResult.data.devise);
+      }
+      
+      const data = await dashboardService.getSummary();
+      if (data) {
+        setDashboardData({
+          recentTransactions: data.recentTransactions || [],
+          expenseCategories: data.expenseCategories || []
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des données:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    const deviseAffichage = userDevise === 'MGA' ? 'Ar' : userDevise;
+    return Number(amount || 0).toLocaleString('fr-FR') + ' ' + deviseAffichage;
+  };
+
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString('fr-FR');
+    } catch {
+      return dateString;
+    }
+  };
+
+  const monthlyBudget = dashboardData.expenseCategories.map((category, index) => {
+    const budget = 100; // Budget par défaut, à adapter selon vos besoins
+    const spent = category.value || 0;
+    const percentage = Math.min((spent / budget) * 100, 100);
+    
+    return {
+      category: category.name || 'Autres',
+      budget: budget,
+      spent: spent,
+      percentage: Math.round(percentage)
+    };
+  });
 
   const getTransactionIcon = (type) => {
     switch (type) {
@@ -44,6 +91,16 @@ const DashboardContent = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Chargement des données...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Transactions récentes */}
@@ -56,22 +113,29 @@ const DashboardContent = () => {
         </View>
         
         <View style={styles.transactionsList}>
-          {recentTransactions.map((transaction) => (
-            <View key={transaction.id} style={styles.transactionItem}>
-              <View style={styles.transactionLeft}>
-                <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(transaction.type) + '20' }]}>
-                  {getTransactionIcon(transaction.type)}
+          {dashboardData.recentTransactions.length > 0 ? (
+            dashboardData.recentTransactions.map((transaction, index) => (
+              <View key={index} style={styles.transactionItem}>
+                <View style={styles.transactionLeft}>
+                  <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(transaction.type) + '20' }]}>
+                    {getTransactionIcon(transaction.type)}
+                  </View>
+                  <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionDescription}>{transaction.name || 'Transaction'}</Text>
+                    <Text style={styles.transactionDate}>{formatDate(transaction.date)}</Text>
+                  </View>
                 </View>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionDescription}>{transaction.description}</Text>
-                  <Text style={styles.transactionDate}>{transaction.date}</Text>
-                </View>
+                <Text style={[styles.transactionAmount, { color: getTransactionColor(transaction.type) }]}>
+                  {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                </Text>
               </View>
-              <Text style={[styles.transactionAmount, { color: getTransactionColor(transaction.type) }]}>
-                {transaction.amount}
-              </Text>
+            ))
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Feather name="file-text" size={32} color="#9ca3af" />
+              <Text style={styles.noDataText}>Aucune transaction récente</Text>
             </View>
-          ))}
+          )}
         </View>
       </View>
 
@@ -85,26 +149,33 @@ const DashboardContent = () => {
         </View>
         
         <View style={styles.budgetList}>
-          {monthlyBudget.map((item, index) => (
-            <View key={index} style={styles.budgetItem}>
-              <View style={styles.budgetHeader}>
-                <Text style={styles.budgetCategory}>{item.category}</Text>
-                <Text style={styles.budgetAmount}>{item.spent}€ / {item.budget}€</Text>
+          {monthlyBudget.length > 0 ? (
+            monthlyBudget.map((item, index) => (
+              <View key={index} style={styles.budgetItem}>
+                <View style={styles.budgetHeader}>
+                  <Text style={styles.budgetCategory}>{item.category}</Text>
+                  <Text style={styles.budgetAmount}>{formatCurrency(item.spent)} / {formatCurrency(item.budget)}</Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { 
+                        width: `${item.percentage}%`,
+                        backgroundColor: item.percentage >= 100 ? '#ef4444' : '#22c55e'
+                      }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.progressText}>{item.percentage}% utilisé</Text>
               </View>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { 
-                      width: `${item.percentage}%`,
-                      backgroundColor: item.percentage >= 100 ? '#ef4444' : '#22c55e'
-                    }
-                  ]} 
-                />
-              </View>
-              <Text style={styles.progressText}>{item.percentage}% utilisé</Text>
+            ))
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Feather name="pie-chart" size={32} color="#9ca3af" />
+              <Text style={styles.noDataText}>Aucun budget défini</Text>
             </View>
-          ))}
+          )}
         </View>
       </View>
 
@@ -318,6 +389,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginLeft: 12,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  noDataContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 8,
   },
 });
 
