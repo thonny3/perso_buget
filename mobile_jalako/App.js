@@ -5,12 +5,14 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Dashboard from './components/Dashboard';
 import { authService } from './services/apiService';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
 function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const onSubmit = async () => {
     console.log('🚀 Début du processus de connexion');
@@ -19,17 +21,17 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
     // Validation
     if (!email) {
       console.log('❌ Validation échouée: Email manquant');
-      setError('Ny mailaka dia ilaina');
+      setError(t('login.emailRequired'));
       return;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
       console.log('❌ Validation échouée: Format email invalide');
-      setError('Ny mailaka dia tsy marina');
+      setError(t('login.emailInvalid'));
       return;
     }
     if (!password || password.length < 6) {
       console.log('❌ Validation échouée: Mot de passe trop court');
-      setError('Ny teny miafina dia tokony ho 6 na mihoatra');
+      setError(t('login.passwordTooShort'));
       return;
     }
 
@@ -51,7 +53,7 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
       }
     } catch (e) {
       console.log('💥 Erreur inattendue lors de la connexion:', e);
-      setError("Nisy olana tamin'ny fidirana");
+      setError(t('common.error'));
     } finally {
       console.log('🏁 Fin du processus de connexion');
       setLoading(false);
@@ -64,23 +66,23 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
         <View style={styles.logoWrap}>
           <Image source={require('./assets/logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
-        <Text style={styles.title}>MyJalako</Text>
-        <Text style={styles.subtitle}>Midira amin'ny kaontinao</Text>
+        <Text style={styles.title}>{t('login.title')}</Text>
+        <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
 
         <View style={styles.socialGroup}>
           <TouchableOpacity style={styles.socialButton} activeOpacity={0.8}>
             <AntDesign name="google" size={18} color="#DB4437" />
-            <Text style={styles.socialText}>Se connecter avec Google</Text>
+            <Text style={styles.socialText}>{t('login.googleLogin')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.socialButton} activeOpacity={0.8}>
             <FontAwesome name="facebook-official" size={18} color="#1877F2" />
-            <Text style={styles.socialText}>Se connecter avec Facebook</Text>
+            <Text style={styles.socialText}>{t('login.facebookLogin')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou</Text>
+          <Text style={styles.dividerText}>{t('login.orDivider')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -88,7 +90,7 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
 
         <TextInput
           style={styles.input}
-          placeholder="email@example.com"
+          placeholder={t('login.emailPlaceholder')}
           keyboardType="email-address"
           autoCapitalize="none"
           value={email}
@@ -96,26 +98,26 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
         />
         <TextInput
           style={styles.input}
-          placeholder="••••••••"
+          placeholder={t('login.passwordPlaceholder')}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
 
         <TouchableOpacity style={[styles.button, loading && { opacity: 0.6 }]} disabled={loading} onPress={onSubmit}>
-          <Text style={styles.buttonText}>{loading ? 'Miditra...' : 'Hiditra'}</Text>
+          <Text style={styles.buttonText}>{loading ? t('login.loginButtonLoading') : t('login.loginButton')}</Text>
         </TouchableOpacity>
 
         <View style={styles.linkRow}>
           <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.linkText}>Hadino ny teny miafina?</Text>
+            <Text style={styles.linkText}>{t('login.forgotPassword')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Mbola tsy manana kaonty? </Text>
+          <Text style={styles.footerText}>{t('login.noAccount')}</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={onSwitchToRegister}>
-            <Text style={styles.footerLink}>Hisoratra anarana</Text>
+            <Text style={styles.footerLink}>{t('login.registerLink')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -135,11 +137,12 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const currencyOptions = [
-    { value: 'MGA', label: 'Ariary Malagasy (Ar)', flag: '🇲🇬' },
-    { value: 'EUR', label: 'Euro (€)', flag: '🇪🇺' },
-    { value: 'USD', label: 'Dollar ($)', flag: '🇺🇸' }
+    { value: 'MGA', label: t('currencies.MGA'), flag: '🇲🇬' },
+    { value: 'EUR', label: t('currencies.EUR'), flag: '🇪🇺' },
+    { value: 'USD', label: t('currencies.USD'), flag: '🇺🇸' }
   ];
 
   const handleInputChange = (field, value) => {
@@ -149,27 +152,27 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
 
   const validateForm = () => {
     if (!formData.firstName.trim()) {
-      setError('Ny fanampiny dia ilaina');
+      setError(t('register.firstNameRequired'));
       return false;
     }
     if (!formData.lastName.trim()) {
-      setError('Ny anarana dia ilaina');
+      setError(t('register.lastNameRequired'));
       return false;
     }
     if (!formData.email) {
-      setError('Ny mailaka dia ilaina');
+      setError(t('register.emailRequired'));
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setError('Ny mailaka dia tsy marina');
+      setError(t('register.emailInvalid'));
       return false;
     }
     if (!formData.password || formData.password.length < 6) {
-      setError('Ny teny miafina dia tokony ho 6 na mihoatra');
+      setError(t('register.passwordTooShort'));
       return false;
     }
     if (formData.password !== formData.confirmPassword) {
-      setError('Ny teny miafina dia tsy mitovy');
+      setError(t('register.passwordsNotMatch'));
       return false;
     }
     return true;
@@ -191,14 +194,14 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
       const result = await authService.register(userData);
       
       if (result.success) {
-        Alert.alert('Succès', 'Compte créé avec succès!', [
-          { text: 'OK', onPress: () => onSwitchToDashboard() }
+        Alert.alert(t('common.success'), 'Compte créé avec succès!', [
+          { text: t('common.confirm'), onPress: () => onSwitchToDashboard() }
         ]);
       } else {
         setError(result.error);
       }
     } catch (e) {
-      setError("Nisy olana tamin'ny fisoratana anarana");
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -210,23 +213,23 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
         <View style={styles.logoWrap}>
           <Image source={require('./assets/logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
-        <Text style={styles.title}>MyJalako</Text>
-        <Text style={styles.subtitle}>Mamorona ny kaontinao</Text>
+        <Text style={styles.title}>{t('register.title')}</Text>
+        <Text style={styles.subtitle}>{t('register.subtitle')}</Text>
 
         <View style={styles.socialGroup}>
           <TouchableOpacity style={styles.socialButton} activeOpacity={0.8}>
             <AntDesign name="google" size={18} color="#DB4437" />
-            <Text style={styles.socialText}>S'inscrire avec Google</Text>
+            <Text style={styles.socialText}>{t('register.googleRegister')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.socialButton} activeOpacity={0.8}>
             <FontAwesome name="facebook-official" size={18} color="#1877F2" />
-            <Text style={styles.socialText}>S'inscrire avec Facebook</Text>
+            <Text style={styles.socialText}>{t('register.facebookRegister')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou</Text>
+          <Text style={styles.dividerText}>{t('register.orDivider')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -234,19 +237,19 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
 
         <View style={styles.row}>
           <View style={styles.halfInput}>
-            <Text style={styles.label}>Prénom</Text>
+            <Text style={styles.label}>{t('register.firstNameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Rakoto"
+              placeholder={t('register.firstNamePlaceholder')}
               value={formData.firstName}
               onChangeText={(text) => handleInputChange('firstName', text)}
             />
           </View>
           <View style={styles.halfInput}>
-            <Text style={styles.label}>Nom</Text>
+            <Text style={styles.label}>{t('register.lastNameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Andry"
+              placeholder={t('register.lastNamePlaceholder')}
               value={formData.lastName}
               onChangeText={(text) => handleInputChange('lastName', text)}
             />
@@ -254,10 +257,10 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
         </View>
 
         <View>
-          <Text style={styles.label}>Mailaka</Text>
+          <Text style={styles.label}>{t('register.emailLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="email@example.com"
+            placeholder={t('register.emailPlaceholder')}
             keyboardType="email-address"
             autoCapitalize="none"
             value={formData.email}
@@ -266,7 +269,7 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
         </View>
 
         <View>
-          <Text style={styles.label}>Vola</Text>
+          <Text style={styles.label}>{t('register.currencyLabel')}</Text>
           <View style={styles.currencyContainer}>
             <Text style={styles.currencyText}>
               {currencyOptions.find(opt => opt.value === formData.currency)?.flag} {formData.currency}
@@ -275,10 +278,10 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
         </View>
 
         <View>
-          <Text style={styles.label}>Teny miafina</Text>
+          <Text style={styles.label}>{t('register.passwordLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="••••••••"
+            placeholder={t('register.passwordPlaceholder')}
             secureTextEntry
             value={formData.password}
             onChangeText={(text) => handleInputChange('password', text)}
@@ -286,10 +289,10 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
         </View>
 
         <View>
-          <Text style={styles.label}>Hamarino ny teny miafina</Text>
+          <Text style={styles.label}>{t('register.confirmPasswordLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="••••••••"
+            placeholder={t('register.confirmPasswordPlaceholder')}
             secureTextEntry
             value={formData.confirmPassword}
             onChangeText={(text) => handleInputChange('confirmPassword', text)}
@@ -297,13 +300,13 @@ function RegisterScreen({ onSwitchToLogin, onSwitchToDashboard }) {
         </View>
 
         <TouchableOpacity style={[styles.button, loading && { opacity: 0.6 }]} disabled={loading} onPress={onSubmit}>
-          <Text style={styles.buttonText}>{loading ? 'Miditra...' : 'Hisoratra anarana'}</Text>
+          <Text style={styles.buttonText}>{loading ? t('register.registerButtonLoading') : t('register.registerButton')}</Text>
         </TouchableOpacity>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Efa manana kaonty? </Text>
+          <Text style={styles.footerText}>{t('register.hasAccount')}</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={onSwitchToLogin}>
-            <Text style={styles.footerLink}>Hiditra</Text>
+            <Text style={styles.footerLink}>{t('register.loginLink')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -320,19 +323,27 @@ export default function App() {
   };
 
   if (currentScreen === 'dashboard') {
-    return <Dashboard onLogout={handleLogout} />;
+    return (
+      <LanguageProvider>
+        <Dashboard onLogout={handleLogout} />
+      </LanguageProvider>
+    );
   }
 
-  return currentScreen === 'login' ? (
-    <LoginScreen 
-      onSwitchToRegister={() => setCurrentScreen('register')} 
-      onSwitchToDashboard={() => setCurrentScreen('dashboard')}
-    />
-  ) : (
-    <RegisterScreen 
-      onSwitchToLogin={() => setCurrentScreen('login')} 
-      onSwitchToDashboard={() => setCurrentScreen('dashboard')}
-    />
+  return (
+    <LanguageProvider>
+      {currentScreen === 'login' ? (
+        <LoginScreen 
+          onSwitchToRegister={() => setCurrentScreen('register')} 
+          onSwitchToDashboard={() => setCurrentScreen('dashboard')}
+        />
+      ) : (
+        <RegisterScreen 
+          onSwitchToLogin={() => setCurrentScreen('login')} 
+          onSwitchToDashboard={() => setCurrentScreen('dashboard')}
+        />
+      )}
+    </LanguageProvider>
   );
 }
 

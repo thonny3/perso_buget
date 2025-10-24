@@ -191,9 +191,64 @@ export const authService = {
   },
 };
 
+// Services mot de passe oublié / réinitialisation
+export const forgotPasswordService = {
+  // Envoyer un email avec lien de réinitialisation
+  forgotPassword: async (email) => {
+    try {
+      const response = await apiClient.post('/auth/forgot-password', { email });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.response?.data?.message || 'Impossible d\'envoyer l\'email',
+      };
+    }
+  },
+
+  // Réinitialiser avec token (depuis email)
+  resetPassword: async (token, newPassword) => {
+    try {
+      const response = await apiClient.post('/auth/reset-password', { token, newPassword });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.response?.data?.message || 'Réinitialisation impossible',
+      };
+    }
+  },
+
+  // Demander un code OTP
+  requestOtp: async (email) => {
+    try {
+      const response = await apiClient.post('/auth/forgot-password-otp', { email });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.response?.data?.message || 'Impossible d\'envoyer le code',
+      };
+    }
+  },
+
+  // Réinitialiser avec OTP
+  resetWithOtp: async (email, otp, newPassword) => {
+    try {
+      const response = await apiClient.post('/auth/reset-password-otp', { email, otp, newPassword });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.response?.data?.message || 'Code invalide ou expiré',
+      };
+    }
+  },
+};
+
 // Services des données du dashboard
 export const dashboardService = {
-  // Obtenir les statistiques du dashboard
+  // Obtenir les statistiques complètes du dashboard
   getStats: async () => {
     try {
       const response = await apiClient.get('/dashboard/stats');
@@ -202,6 +257,77 @@ export const dashboardService = {
       return {
         success: false,
         error: error.response?.data?.message || 'Erreur lors du chargement des statistiques',
+      };
+    }
+  },
+
+  // Obtenir le solde total de tous les comptes
+  getTotalBalance: async () => {
+    try {
+      const response = await apiClient.get('/comptes/mycompte/user');
+      if (response.data && Array.isArray(response.data)) {
+        const totalBalance = response.data.reduce((sum, account) => sum + (parseFloat(account.solde) || 0), 0);
+        return { success: true, data: { totalBalance } };
+      }
+      return { success: true, data: { totalBalance: 0 } };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement du solde total',
+      };
+    }
+  },
+
+  // Obtenir les revenus du mois
+  getMonthlyRevenues: async (month = null) => {
+    try {
+      const params = month ? `?month=${month}` : '';
+      const response = await apiClient.get(`/revenus/monthly${params}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des revenus',
+      };
+    }
+  },
+
+  // Obtenir les dépenses du mois
+  getMonthlyExpenses: async (month = null) => {
+    try {
+      const params = month ? `?month=${month}` : '';
+      const response = await apiClient.get(`/depenses/monthly${params}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des dépenses',
+      };
+    }
+  },
+
+  // Obtenir les objectifs atteints
+  getAchievedGoals: async () => {
+    try {
+      const response = await apiClient.get('/objectifs/achieved');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des objectifs atteints',
+      };
+    }
+  },
+
+  // Obtenir les dépenses par catégorie pour une période
+  getExpensesByCategory: async (period = 'octobre-2025') => {
+    try {
+      const response = await apiClient.get(`/depenses/by-category?period=${period}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des dépenses par catégorie',
       };
     }
   },
@@ -235,12 +361,56 @@ export const dashboardService = {
   // Obtenir les objectifs d'épargne
   getSavingsGoals: async () => {
     try {
-      const response = await apiClient.get('/goals/savings');
+      const response = await apiClient.get('/objectifs');
       return { success: true, data: response.data };
     } catch (error) {
       return {
         success: false,
         error: error.response?.data?.message || 'Erreur lors du chargement des objectifs',
+      };
+    }
+  },
+
+  // Obtenir les données complètes du dashboard
+  getDashboardData: async () => {
+    try {
+      const [
+        totalBalanceResult,
+        monthlyRevenuesResult,
+        monthlyExpensesResult,
+        achievedGoalsResult,
+        expensesByCategoryResult,
+        recentTransactionsResult,
+        monthlyBudgetResult,
+        savingsGoalsResult
+      ] = await Promise.all([
+        dashboardService.getTotalBalance(),
+        dashboardService.getMonthlyRevenues(),
+        dashboardService.getMonthlyExpenses(),
+        dashboardService.getAchievedGoals(),
+        dashboardService.getExpensesByCategory(),
+        dashboardService.getRecentTransactions(5),
+        dashboardService.getMonthlyBudget(),
+        dashboardService.getSavingsGoals()
+      ]);
+
+      return {
+        success: true,
+        data: {
+          totalBalance: totalBalanceResult.data?.totalBalance || 0,
+          monthlyRevenues: monthlyRevenuesResult.data || [],
+          monthlyExpenses: monthlyExpensesResult.data || [],
+          achievedGoals: achievedGoalsResult.data || [],
+          expensesByCategory: expensesByCategoryResult.data || [],
+          recentTransactions: recentTransactionsResult.data || [],
+          monthlyBudget: monthlyBudgetResult.data || [],
+          savingsGoals: savingsGoalsResult.data || []
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || 'Erreur lors du chargement des données du dashboard',
       };
     }
   },

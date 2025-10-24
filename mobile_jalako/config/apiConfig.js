@@ -7,7 +7,7 @@ const getApiBaseUrl = () => {
     if (Platform.OS === 'android') {
       // Pour Android Emulator - essayer plusieurs options
       const androidUrls = [
-        'http://192.168.1.248:3001/api',  // Émulateur Android standard (port 3001)
+        'http://192.168.1.28:8081/api',  // Émulateur Android standard (port 3001)
       
       ];
       
@@ -15,14 +15,14 @@ const getApiBaseUrl = () => {
       return androidUrls[0];
     } else if (Platform.OS === 'ios') {
       // Pour iOS Simulator
-      return 'http://192.168.1.248:3001/api';
+      return 'http://192.168.1.28:8081/api';
     } else {
       // Pour web ou autres plateformes
-      return 'http://192.168.1.248:3001/api';
+      return 'http://192.168.1.28:8081/api';
     }
   } else {
     // Mode production - remplacez par votre URL de production
-    return 'http://192.168.1.248:3001/api/api';
+    return 'http://192.168.1.28:8081/api';
   }
 };
 

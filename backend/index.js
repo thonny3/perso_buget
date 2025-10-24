@@ -36,8 +36,11 @@ app.use(express.json());
 app.use(cors({
   //origin: 'http://192.168.1.248:8081', // ton front (Next.js/React)
   origin: '*',
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
 }));
+
 app.use('/uploads', express.static(uploadDir));
 app.set('db', require('./config/db'));
 
@@ -123,8 +126,8 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3001;
-server.listen(PORT, 'localhost', () => console.log(`Server running on http://localhost:${PORT}`));
+const PORT = 8081;
+server.listen(PORT, 'localhost', () => console.log(`Server running on http://192.168.1.28:${PORT}`));
 
 // Tâche simple d'auto-renouvellement quotidien (toutes les 24h)
 try {
