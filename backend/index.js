@@ -126,8 +126,8 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 8081;
-server.listen(PORT, 'localhost', () => console.log(`Server running on http://192.168.1.28:${PORT}`));
+const PORT = 3002;
+server.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://0.0.0.0:${PORT}`));
 
 // Tâche simple d'auto-renouvellement quotidien (toutes les 24h)
 try {

@@ -1,77 +1,173 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { API_CONFIG } from '../config/apiConfig';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { API_CONFIG, debugApiConfig } from '../config/apiConfig';
 import { authService } from '../services/apiService';
-import { runFullConnectivityTest } from '../utils/networkTest';
-import { testAllUrls, quickConnectivityTest } from '../services/connectionTester';
 
 const ConnectionDebugger = ({ visible, onClose }) => {
-  const [connectionStatus, setConnectionStatus] = useState('Vérification...');
-  const [apiUrl, setApiUrl] = useState('');
-  const [testResult, setTestResult] = useState(null);
-  const [urlTestResults, setUrlTestResults] = useState([]);
-  const [isTesting, setIsTesting] = useState(false);
+  const [testResults, setTestResults] = useState([]);
+  const [isRunning, setIsRunning] = useState(false);
 
-  useEffect(() => {
-    if (visible) {
-      setApiUrl(API_CONFIG.BASE_URL);
-      testConnection();
-    }
-  }, [visible]);
-
-  const testConnection = async () => {
-    try {
-      setConnectionStatus('Test de connexion...');
-      setTestResult('Démarrage des tests...');
-      setIsTesting(true);
-      
-      // Test rapide d'abord
-      const quickTest = await quickConnectivityTest();
-      if (quickTest.success) {
-        setConnectionStatus('✅ Connexion rapide réussie');
-        setTestResult(`URL fonctionnelle: ${quickTest.url}`);
-        setIsTesting(false);
-        return;
-      }
-      
-      // Si le test rapide échoue, tester toutes les URLs
-      setConnectionStatus('Test de toutes les URLs...');
-      const allResults = await testAllUrls();
-      
-      if (allResults.success) {
-        setConnectionStatus('✅ URL fonctionnelle trouvée');
-        setTestResult(`URL recommandée: ${allResults.workingUrl}`);
-        setUrlTestResults(allResults.allResults);
-      } else {
-        setConnectionStatus('❌ Aucune URL fonctionnelle');
-        setTestResult('Toutes les URLs testées ont échoué');
-        setUrlTestResults(allResults.allResults);
-      }
-      
-      setIsTesting(false);
-    } catch (error) {
-      setConnectionStatus('❌ Erreur de test');
-      setTestResult(`Erreur: ${error.message}`);
-      setIsTesting(false);
-    }
+  const addResult = (test, status, message, data = null) => {
+    const result = {
+      id: Date.now(),
+      test,
+      status, // 'success', 'error', 'warning'
+      message,
+      data,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    setTestResults(prev => [result, ...prev]);
   };
 
-  const testLogin = async () => {
+  const runConnectivityTests = async () => {
+    setIsRunning(true);
+    setTestResults([]);
+    
+    addResult('Configuration', 'info', 'Début des tests de connectivité');
+    
+    // Test 1: Configuration API
     try {
-      setConnectionStatus('Test de login...');
+      debugApiConfig();
+      addResult('Configuration API', 'success', `URL: ${API_CONFIG.BASE_URL}`);
+    } catch (error) {
+      addResult('Configuration API', 'error', `Erreur: ${error.message}`);
+    }
+
+    // Test 2: Ping simple
+    try {
+      const pingUrl = API_CONFIG.BASE_URL.replace('/api', '') + '/api/ping';
+      addResult('Ping Test', 'info', `Test: ${pingUrl}`);
+      
+      const response = await fetch(pingUrl, {
+        method: 'GET',
+        timeout: 5000
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        addResult('Ping Test', 'success', 'Serveur accessible', data);
+      } else {
+        addResult('Ping Test', 'error', `Erreur HTTP: ${response.status}`);
+      }
+    } catch (error) {
+      addResult('Ping Test', 'error', `Erreur réseau: ${error.message}`);
+    }
+
+    // Test 3: Health check
+    try {
+      const healthUrl = API_CONFIG.BASE_URL.replace('/api', '') + '/api/health';
+      addResult('Health Check', 'info', `Test: ${healthUrl}`);
+      
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        timeout: 5000
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        addResult('Health Check', 'success', 'Serveur en bonne santé', data);
+      } else {
+        addResult('Health Check', 'error', `Erreur HTTP: ${response.status}`);
+      }
+    } catch (error) {
+      addResult('Health Check', 'error', `Erreur réseau: ${error.message}`);
+    }
+
+    // Test 4: Auth endpoint
+    try {
+      const authUrl = API_CONFIG.BASE_URL + '/auth/test';
+      addResult('Auth Test', 'info', `Test: ${authUrl}`);
+      
+      const response = await fetch(authUrl, {
+        method: 'GET',
+        timeout: 5000
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        addResult('Auth Test', 'success', 'Endpoint auth accessible', data);
+      } else {
+        addResult('Auth Test', 'error', `Erreur HTTP: ${response.status}`);
+      }
+    } catch (error) {
+      addResult('Auth Test', 'error', `Erreur réseau: ${error.message}`);
+    }
+
+    // Test 5: Login test (avec des credentials de test)
+    try {
+      const loginUrl = API_CONFIG.BASE_URL + '/auth/login';
+      addResult('Login Test', 'info', `Test: ${loginUrl}`);
+      
+      const testCredentials = {
+        email: 'test@example.com',
+        password: 'testpassword'
+      };
+      
+      const response = await fetch(loginUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testCredentials),
+        timeout: 10000
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        addResult('Login Test', 'success', 'Login réussi (utilisateur test existe)', data);
+      } else if (response.status === 404) {
+        addResult('Login Test', 'warning', 'Login échoué - utilisateur test n\'existe pas (normal)', data);
+      } else {
+        addResult('Login Test', 'error', `Erreur login: ${response.status}`, data);
+      }
+    } catch (error) {
+      addResult('Login Test', 'error', `Erreur réseau: ${error.message}`);
+    }
+
+    // Test 6: Test avec authService
+    try {
+      addResult('AuthService Test', 'info', 'Test du service d\'authentification');
       
       const result = await authService.login({
         email: 'test@example.com',
-        password: 'test123'
+        password: 'testpassword'
       });
       
       if (result.success) {
-        setTestResult('✅ Login API fonctionne');
+        addResult('AuthService Test', 'success', 'AuthService fonctionne', result);
       } else {
-        setTestResult(`❌ Login API: ${result.error}`);
+        addResult('AuthService Test', 'warning', 'AuthService répond mais login échoué (normal)', result);
       }
     } catch (error) {
-      setTestResult(`❌ Erreur Login: ${error.message}`);
+      addResult('AuthService Test', 'error', `Erreur AuthService: ${error.message}`);
+    }
+
+    setIsRunning(false);
+    addResult('Tests', 'info', 'Tous les tests terminés');
+  };
+
+  const clearResults = () => {
+    setTestResults([]);
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'success': return '#10B981';
+      case 'error': return '#EF4444';
+      case 'warning': return '#F59E0B';
+      case 'info': return '#3B82F6';
+      default: return '#6B7280';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'success': return '✅';
+      case 'error': return '❌';
+      case 'warning': return '⚠️';
+      case 'info': return 'ℹ️';
+      default: return '📝';
     }
   };
 
@@ -81,80 +177,47 @@ const ConnectionDebugger = ({ visible, onClose }) => {
     <View style={styles.overlay}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>🔧 Debug Connexion</Text>
+          <Text style={styles.title}>🔍 Debug Connexion</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.section}>
-            <Text style={styles.label}>URL API:</Text>
-            <Text style={styles.value}>{apiUrl}</Text>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.label}>Statut:</Text>
-            <Text style={styles.status}>{connectionStatus}</Text>
-          </View>
-
-          {testResult && (
-            <View style={styles.section}>
-              <Text style={styles.label}>Résultat du test:</Text>
-              <Text style={styles.result}>{testResult}</Text>
-            </View>
-          )}
-
-          {/* Résultats des tests d'URLs */}
-          {urlTestResults.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.label}>📊 Résultats des tests d'URLs:</Text>
-              <ScrollView style={styles.urlResultsList} showsVerticalScrollIndicator={false}>
-                {urlTestResults.map((result, index) => (
-                  <View key={index} style={styles.urlResultItem}>
-                    <Text style={styles.urlResultIcon}>
-                      {result.success ? '✅' : '❌'}
-                    </Text>
-                    <View style={styles.urlResultContent}>
-                      <Text style={styles.urlResultUrl}>{result.url}</Text>
-                      <Text style={styles.urlResultStatus}>
-                        {result.success 
-                          ? `Status: ${result.status}` 
-                          : `Erreur: ${result.error || result.code}`
-                        }
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <View style={styles.buttons}>
-            <TouchableOpacity 
-              onPress={testConnection} 
-              style={[styles.button, isTesting && styles.buttonDisabled]}
-              disabled={isTesting}
-            >
-              <Text style={styles.buttonText}>
-                {isTesting ? '⏳ Test en cours...' : '🔄 Tester Connexion'}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity onPress={testLogin} style={styles.button}>
-              <Text style={styles.buttonText}>🔐 Tester Login</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.help}>
-            <Text style={styles.helpTitle}>💡 Solutions possibles:</Text>
-            <Text style={styles.helpText}>• Vérifiez que votre serveur backend est démarré</Text>
-            <Text style={styles.helpText}>• Vérifiez l'URL dans config/apiConfig.js</Text>
-            <Text style={styles.helpText}>• Pour Android: utilisez 10.0.2.2:3000</Text>
-            <Text style={styles.helpText}>• Pour iOS: utilisez localhost:3000</Text>
-            <Text style={styles.helpText}>• Pour device physique: utilisez votre IP locale</Text>
-          </View>
+        <View style={styles.controls}>
+          <TouchableOpacity 
+            style={[styles.button, isRunning && styles.buttonDisabled]} 
+            onPress={runConnectivityTests}
+            disabled={isRunning}
+          >
+            <Text style={styles.buttonText}>
+              {isRunning ? '🔄 Test en cours...' : '🚀 Lancer les tests'}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.clearButton} onPress={clearResults}>
+            <Text style={styles.clearText}>🗑️ Effacer</Text>
+          </TouchableOpacity>
         </View>
+
+        <ScrollView style={styles.results}>
+          {testResults.map((result) => (
+            <View key={result.id} style={styles.resultItem}>
+              <View style={styles.resultHeader}>
+                <Text style={styles.resultIcon}>{getStatusIcon(result.status)}</Text>
+                <Text style={styles.resultTest}>{result.test}</Text>
+                <Text style={styles.resultTime}>{result.timestamp}</Text>
+              </View>
+              <Text style={[styles.resultMessage, { color: getStatusColor(result.status) }]}>
+                {result.message}
+              </Text>
+              {result.data && (
+                <Text style={styles.resultData}>
+                  {JSON.stringify(result.data, null, 2)}
+                </Text>
+              )}
+            </View>
+          ))}
+        </ScrollView>
       </View>
     </View>
   );
@@ -167,128 +230,103 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    zIndex: 9999,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
   },
   container: {
+    flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 16,
     margin: 20,
-    maxHeight: '80%',
-    width: '90%',
+    borderRadius: 12,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    marginBottom: 16,
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: 'bold',
+    color: '#1F2937',
   },
   closeButton: {
     padding: 8,
   },
   closeText: {
-    fontSize: 20,
-    color: '#6b7280',
+    fontSize: 18,
+    color: '#6B7280',
   },
-  content: {
-    padding: 20,
-  },
-  section: {
+  controls: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 16,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontFamily: 'monospace',
-  },
-  status: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  result: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  buttons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 20,
-  },
   button: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    flex: 1,
+    backgroundColor: '#3B82F6',
+    padding: 12,
     borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
   },
-  help: {
-    backgroundColor: '#f9fafb',
-    padding: 16,
+  clearButton: {
+    backgroundColor: '#EF4444',
+    padding: 12,
     borderRadius: 8,
-    marginTop: 16,
+    alignItems: 'center',
   },
-  helpTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+  clearText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  results: {
+    flex: 1,
+  },
+  resultItem: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
     marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#E5E7EB',
   },
-  helpText: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  urlResultsList: {
-    maxHeight: 150,
-    marginTop: 8,
-  },
-  urlResultItem: {
+  resultHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
     marginBottom: 4,
   },
-  urlResultIcon: {
+  resultIcon: {
     fontSize: 16,
     marginRight: 8,
   },
-  urlResultContent: {
+  resultTest: {
     flex: 1,
-  },
-  urlResultUrl: {
-    fontSize: 12,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
+    color: '#1F2937',
   },
-  urlResultStatus: {
-    fontSize: 10,
-    color: '#666',
+  resultTime: {
+    fontSize: 12,
+    color: '#6B7280',
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  resultMessage: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  resultData: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'monospace',
+    backgroundColor: '#F3F4F6',
+    padding: 8,
+    borderRadius: 4,
   },
 });
 

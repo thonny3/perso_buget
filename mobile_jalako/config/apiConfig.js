@@ -3,26 +3,20 @@ import { Platform } from 'react-native';
 // Configuration des URLs API selon la plateforme
 const getApiBaseUrl = () => {
   if (__DEV__) {
-    // Mode développement
+    // Mode développement - utiliser l'IP du réseau local
     if (Platform.OS === 'android') {
-      // Pour Android Emulator - essayer plusieurs options
-      const androidUrls = [
-        'http://192.168.1.28:8081/api',  // Serveur backend actuel (port 8081)
-      
-      ];
-      
-      // Retourner la première URL (on testera la connectivité plus tard)
-      return androidUrls[0];
+      // Pour Android (émulateur ou appareil physique)
+      return 'http://192.168.1.28:3002/api';
     } else if (Platform.OS === 'ios') {
-      // Pour iOS Simulator
-      return 'http://192.168.1.28:8081/api';
+      // Pour iOS Simulator ou appareil physique
+      return 'http://192.168.1.28:3002/api';
     } else {
       // Pour web ou autres plateformes
-      return 'http://192.168.1.28:8081/api';
+      return 'http://192.168.1.28:3002/api';
     }
   } else {
     // Mode production - remplacez par votre URL de production
-    return 'http://192.168.1.28:8081/api';
+    return 'http://192.168.1.28:3002/api';
   }
 };
 

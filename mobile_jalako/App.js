@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Dashboard from './components/Dashboard';
+import ConnectionDebugger from './components/ConnectionDebugger';
 import { authService } from './services/apiService';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
@@ -12,6 +13,7 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDebugger, setShowDebugger] = useState(false);
   const { t } = useLanguage();
 
   const onSubmit = async () => {
@@ -69,6 +71,16 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
         <Text style={styles.title}>{t('login.title')}</Text>
         <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
 
+        {/* Bouton de debug - seulement en mode développement */}
+        {__DEV__ && (
+          <TouchableOpacity 
+            style={styles.debugButton} 
+            onPress={() => setShowDebugger(true)}
+          >
+            <Text style={styles.debugButtonText}>🔍 Debug Connexion</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.socialGroup}>
           <TouchableOpacity style={styles.socialButton} activeOpacity={0.8}>
             <AntDesign name="google" size={18} color="#DB4437" />
@@ -121,6 +133,13 @@ function LoginScreen({ onSwitchToRegister, onSwitchToDashboard }) {
           </TouchableOpacity>
         </View>
       </View>
+      
+      {/* Debugger de connexion */}
+      <ConnectionDebugger 
+        visible={showDebugger} 
+        onClose={() => setShowDebugger(false)} 
+      />
+      
       <StatusBar style="dark" />
     </View>
   );
@@ -512,5 +531,17 @@ const styles = StyleSheet.create({
   currencyText: {
     fontSize: 17,
     color: '#374151',
+  },
+  debugButton: {
+    backgroundColor: '#F59E0B',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  debugButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
