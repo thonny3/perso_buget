@@ -261,6 +261,32 @@ export const dashboardService = {
     }
   },
 
+  // Obtenir toutes les données du dashboard
+  getDashboardData: async () => {
+    try {
+      const response = await apiClient.get('/dashboard/data');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des données du dashboard',
+      };
+    }
+  },
+
+  // Obtenir le contenu du dashboard (graphiques, transactions, etc.)
+  getDashboardContent: async () => {
+    try {
+      const response = await apiClient.get('/dashboard/content');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement du contenu du dashboard',
+      };
+    }
+  },
+
   // Obtenir le solde total de tous les comptes
   getTotalBalance: async () => {
     try {

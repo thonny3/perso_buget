@@ -2,20 +2,17 @@ import { Platform } from 'react-native';
 
 // URLs à tester pour Android
 const ANDROID_URLS = [
-  'http://10.0.2.2:3001/api',  // Émulateur Android standard (port 3001)
-  'http://localhost:3001/api',  // Alternative (port 3001)
-  'http://127.0.0.1:3001/api', // Alternative locale (port 3001)
-  'http://10.0.2.2:3000/api',  // Ancien port 3000
-  'http://localhost:3000/api',  // Ancien port 3000
-  'http://192.168.1.100:3001/api', // IP locale (remplacez par votre IP)
+  'http://192.168.1.28:8081/api',  // Serveur backend actuel
+  'http://10.0.2.2:8081/api',       // Émulateur Android standard
+  'http://localhost:8081/api',       // Alternative locale
+  'http://127.0.0.1:8081/api',      // Alternative locale
 ];
 
 // URLs à tester pour iOS
 const IOS_URLS = [
-  'http://localhost:3001/api',  // Port 3001
-  'http://127.0.0.1:3001/api',  // Port 3001
-  'http://localhost:3000/api',  // Ancien port 3000
-  'http://127.0.0.1:3000/api',  // Ancien port 3000
+  'http://192.168.1.28:8081/api',  // Serveur backend actuel
+  'http://localhost:8081/api',       // Port 8081
+  'http://127.0.0.1:8081/api',      // Port 8081
 ];
 
 // Test de connectivité pour une URL donnée
@@ -88,8 +85,8 @@ export const testAllUrls = async () => {
       success: false,
       allResults: results,
       suggestions: [
-        'Vérifiez que le serveur backend est démarré',
-        'Vérifiez que le port 3000 est ouvert',
+        'Vérifiez que le serveur backend est démarré sur le port 8081',
+        'Vérifiez que le port 8081 est ouvert',
         'Essayez de redémarrer l\'émulateur',
         'Vérifiez votre configuration réseau'
       ]
@@ -114,7 +111,7 @@ export const getLocalIP = async () => {
 export const quickConnectivityTest = async () => {
   console.log('⚡ Test rapide de connectivité...');
   
-  const baseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:3001/api' : 'http://localhost:3001/api';
+  const baseUrl = 'http://192.168.1.28:8081/api';
   
   try {
     const response = await fetch(`${baseUrl}/health`, {

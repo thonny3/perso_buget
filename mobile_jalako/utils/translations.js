@@ -73,6 +73,21 @@ export const translations = {
       close: "Fermer"
     },
 
+    // Dashboard
+    dashboard: {
+      vueEnsemble: "Vue d'ensemble",
+      soldeTotal: "Solde Total",
+      revenusMois: "Revenus du mois",
+      depensesMois: "Dépenses du mois",
+      objectifsAtteints: "Objectifs atteints",
+      revenusVsDepenses: "Revenus vs Dépenses",
+      depensesParCategorie: "Dépenses par catégorie",
+      transactionsRecentes: "Transactions récentes",
+      budgetMensuel: "Budget mensuel",
+      voirTout: "Voir tout",
+      gerer: "Gérer"
+    },
+
     // Écran mot de passe oublié
     forgotPassword: {
       title: "Mot de passe oublié",

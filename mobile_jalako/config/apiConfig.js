@@ -7,7 +7,7 @@ const getApiBaseUrl = () => {
     if (Platform.OS === 'android') {
       // Pour Android Emulator - essayer plusieurs options
       const androidUrls = [
-        'http://192.168.1.28:8081/api',  // Émulateur Android standard (port 3001)
+        'http://192.168.1.28:8081/api',  // Serveur backend actuel (port 8081)
       
       ];
       
