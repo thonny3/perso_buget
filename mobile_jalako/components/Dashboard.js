@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Alert, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DashboardHeader from './DashboardHeader';
@@ -14,6 +14,10 @@ import RevenusScreen from './screens/RevenusScreen';
 import AnimatedScreen from './AnimatedScreen';
 import ConnectionDebugger from './ConnectionDebugger';
 import LogViewer from './LogViewer';
+import BottomNavigation from './BottomNavigation';
+import AddFormScreen from './AddFormScreen';
+import NotificationScreen from './NotificationScreen';
+import ProfileScreen from './ProfileScreen';
 import { dashboardService, authService } from '../services/apiService';
 
 const Dashboard = ({ onLogout }) => {
@@ -23,6 +27,8 @@ const Dashboard = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [debugVisible, setDebugVisible] = useState(false);
   const [logsVisible, setLogsVisible] = useState(false);
+  const [addFormVisible, setAddFormVisible] = useState(false);
+  const refreshPortefeuilleRef = useRef(null);
 
   const handleMenuPress = () => {
     setSidebarVisible(true);
@@ -38,12 +44,45 @@ const Dashboard = ({ onLogout }) => {
     console.log('Navigate to:', screenId);
   };
 
+  const handleBottomTabPress = (tabId) => {
+    console.log('Bottom tab pressed:', tabId);
+    switch (tabId) {
+      case 'home':
+        setCurrentScreen('dashboard');
+        break;
+      case 'budget':
+        setCurrentScreen('budget');
+        break;
+      case 'add':
+        setAddFormVisible(true);
+        break;
+      case 'notifications':
+        setCurrentScreen('alertes');
+        break;
+      case 'profile':
+        setCurrentScreen('profile');
+        break;
+      default:
+        break;
+    }
+  };
+
   const handleNotificationPress = () => {
     console.log('Notifications pressed');
   };
 
   const handleSearchPress = () => {
     console.log('Search pressed');
+  };
+
+  const handleAddFormSuccess = (accountData) => {
+    console.log('Add form success:', accountData);
+    // Recharger les données si nécessaire
+    // Par exemple, recharger les comptes si on était dans portefeuille
+    if (currentScreen === 'portefeuille' && refreshPortefeuilleRef.current) {
+      console.log('Rechargement des comptes...');
+      refreshPortefeuilleRef.current();
+    }
   };
 
   const handleLogout = async () => {
@@ -81,24 +120,47 @@ const Dashboard = ({ onLogout }) => {
     switch (currentScreen) {
       case 'dashboard':
         return 'Tableau de bord';
+      case 'dettes':
+        return 'Dettes';
       case 'portefeuille':
-        return '';
-      case 'transactions':
-        return '';
-      case 'budget':
-        return '';
+        return 'Portefeuille';
+      case 'investissements':
+        return 'Investissements';
       case 'depenses':
-        return '';
+        return 'Dépenses';
       case 'revenus':
-        return '';
-      case 'objectifs':
-        return '';
+        return 'Revenus';
+      case 'transactions':
+        return 'Transactions';
       case 'transferts':
-        return '';
+        return 'Transferts';
+      case 'budget':
+        return 'Budget';
+      case 'objectifs':
+        return 'Objectifs';
       case 'abonnements':
-        return '';
+        return 'Abonnements';
+      case 'alertes':
+        return 'Alertes';
+      case 'ia':
+        return 'Insights IA';
       default:
-        return '';
+        return 'Tableau de bord';
+    }
+  };
+
+  const getActiveTabForCurrentScreen = () => {
+    switch (currentScreen) {
+      case 'dashboard':
+        return 'home';
+      case 'budget':
+        return 'budget';
+      case 'alertes':
+        return 'notifications';
+      case 'profile':
+        return 'profile';
+      default:
+        return 'home';
     }
   };
 
@@ -112,22 +174,35 @@ const Dashboard = ({ onLogout }) => {
             <DashboardContent />
           </>
         );
+      case 'dettes':
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par DettesScreen
       case 'portefeuille':
-        return <PortefeuilleScreen onBack={() => setCurrentScreen('dashboard')} />;
-      case 'transactions':
-        return <TransactionsScreen onBack={() => setCurrentScreen('dashboard')} />;
-      case 'budget':
-        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />;
+        return <PortefeuilleScreen 
+          onBack={() => setCurrentScreen('dashboard')} 
+          onRefreshCallback={(callback) => refreshPortefeuilleRef.current = callback}
+        />;
+      case 'investissements':
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par InvestissementsScreen
       case 'depenses':
         return <DepensesScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'revenus':
         return <RevenusScreen onBack={() => setCurrentScreen('dashboard')} />;
-      case 'objectifs':
-        return <BudgetScreen />; // Temporaire, à remplacer par ObjectifsScreen
+      case 'transactions':
+        return <TransactionsScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'transferts':
-        return <TransactionsScreen />; // Temporaire, à remplacer par TransfertsScreen
+        return <TransactionsScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par TransfertsScreen
+      case 'budget':
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />;
+      case 'objectifs':
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par ObjectifsScreen
       case 'abonnements':
-        return <BudgetScreen />; // Temporaire, à remplacer par AbonnementsScreen
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par AbonnementsScreen
+      case 'alertes':
+        return <NotificationScreen onBack={() => setCurrentScreen('dashboard')} />
+      case 'profile':
+        return <ProfileScreen onBack={() => setCurrentScreen('dashboard')} onLogout={handleLogout} />
+      case 'ia':
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par IAScreen
       default:
         return (
           <>
@@ -197,6 +272,20 @@ const Dashboard = ({ onLogout }) => {
       <LogViewer
         visible={logsVisible}
         onClose={() => setLogsVisible(false)}
+      />
+
+      {/* Add Form Screen */}
+      <AddFormScreen
+        visible={addFormVisible}
+        onClose={() => setAddFormVisible(false)}
+        currentScreen={currentScreen}
+        onSuccess={handleAddFormSuccess}
+      />
+
+      {/* Bottom Navigation */}
+      <BottomNavigation
+        activeTab={getActiveTabForCurrentScreen()}
+        onTabPress={handleBottomTabPress}
       />
     </SafeAreaView>
   );

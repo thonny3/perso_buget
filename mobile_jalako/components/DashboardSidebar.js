@@ -12,22 +12,22 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
       description: 'Accueil'
     },
     {
+      id: 'dettes',
+      label: 'Dettes',
+      icon: 'dollar-sign',
+      description: 'Dettes et remboursements'
+    },
+    {
       id: 'portefeuille',
       label: 'Portefeuille',
       icon: 'wallet',
       description: 'Mon portefeuille'
     },
     {
-      id: 'transactions',
-      label: 'Transactions',
-      icon: 'credit-card',
-      description: 'Mes transactions'
-    },
-    {
-      id: 'budget',
-      label: 'Budget',
-      icon: 'pie-chart',
-      description: 'Gestion budget'
+      id: 'investissements',
+      label: 'Investissements',
+      icon: 'trending-up',
+      description: 'Suivi des investissements'
     },
     {
       id: 'depenses',
@@ -42,16 +42,28 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
       description: 'Mes revenus'
     },
     {
-      id: 'objectifs',
-      label: 'Objectifs',
-      icon: 'target',
-      description: 'Mes objectifs'
+      id: 'transactions',
+      label: 'Transactions',
+      icon: 'arrow-left-right',
+      description: 'Toutes les transactions'
     },
     {
       id: 'transferts',
       label: 'Transferts',
       icon: 'arrow-left-right',
-      description: 'Transférer et historique'
+      description: 'Mouvements entre comptes/objectifs'
+    },
+    {
+      id: 'budget',
+      label: 'Budget',
+      icon: 'pie-chart',
+      description: 'Gestion budget'
+    },
+    {
+      id: 'objectifs',
+      label: 'Objectifs',
+      icon: 'target',
+      description: 'Mes objectifs'
     },
     {
       id: 'abonnements',
@@ -64,6 +76,12 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
       label: 'Alertes',
       icon: 'bell',
       description: 'Notifications'
+    },
+    {
+      id: 'ia',
+      label: 'Insights IA',
+      icon: 'cpu',
+      description: 'Analyse et prévisions'
     }
   ];
 
@@ -90,7 +108,7 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
         <ScrollView style={styles.menuContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>Navigation</Text>
-            {menuItems.slice(0, 5).map((item) => {
+            {menuItems.slice(0, 6).map((item) => {
               const isActive = currentScreen === item.id;
               
               return (
@@ -122,7 +140,7 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
 
           <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>Gestion</Text>
-            {menuItems.slice(5, 8).map((item) => {
+            {menuItems.slice(6, 10).map((item) => {
               const isActive = currentScreen === item.id;
               
               return (
@@ -154,7 +172,7 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
 
           <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>Autres</Text>
-            {menuItems.slice(8).map((item) => {
+            {menuItems.slice(10).map((item) => {
               const isActive = currentScreen === item.id;
               
               return (

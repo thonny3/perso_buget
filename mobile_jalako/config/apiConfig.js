@@ -55,6 +55,13 @@ export const API_ENDPOINTS = {
     UPDATE: (id) => `/transactions/${id}`,
     DELETE: (id) => `/transactions/${id}`,
   },
+  SHARED_ACCOUNTS: {
+    LIST_BY_USER: (id_user) => `/comptes-partages/user/${id_user}`,
+    LIST_BY_ACCOUNT: (id_compte) => `/comptes-partages/compte/${id_compte}`,
+    CREATE: '/comptes-partages',
+    UPDATE: (id) => `/comptes-partages/${id}`,
+    DELETE: (id) => `/comptes-partages/${id}`,
+  },
 };
 
 // Fonction pour obtenir l'URL complète

@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Modal, TextInput } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import { accountService, authService } from '../../services/apiService';
+import { accountService, authService, sharedAccountsService } from '../../services/apiService';
 
-const PortefeuilleScreen = ({ onBack }) => {
+const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
   const [comptes, setComptes] = useState([]);
+  const [comptesPartages, setComptesPartages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sharedLoading, setSharedLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [sharedError, setSharedError] = useState(null);
   const [userDevise, setUserDevise] = useState('MGA');
+  const [userInfo, setUserInfo] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -46,6 +50,7 @@ const PortefeuilleScreen = ({ onBack }) => {
       const userResult = await authService.getCurrentUser();
       if (userResult.success && userResult.data.devise) {
         setUserDevise(userResult.data.devise);
+        setUserInfo(userResult.data);
       }
       
       const result = await accountService.getMyAccounts();
@@ -80,6 +85,51 @@ const PortefeuilleScreen = ({ onBack }) => {
     }
   };
 
+  // Fonction pour charger les comptes partagés
+  const loadComptesPartages = async () => {
+    try {
+      setSharedError(null);
+      
+      if (!userInfo?.id_user) {
+        setSharedLoading(false);
+        return;
+      }
+      
+      console.log('🔄 Chargement des comptes partagés pour l\'utilisateur:', userInfo.id_user);
+      const result = await sharedAccountsService.getSharedAccountsByUser(userInfo.id_user);
+      
+      if (result.success) {
+        console.log('✅ Comptes partagés chargés:', result.data);
+        // Transformer les données du backend pour correspondre au format attendu
+        const comptesPartagesFormatted = result.data.map(compte => {
+          const devise = compte.devise || userDevise;
+          const deviseAffichage = devise === 'MGA' ? 'Ar' : devise;
+          
+          return {
+            id: compte.id_compte,
+            nom: compte.nom,
+            solde: `${parseFloat(compte.solde).toLocaleString('fr-FR')} ${deviseAffichage}`,
+            devise: deviseAffichage,
+            type: compte.type || 'principal',
+            couleur: getCouleurParType(compte.type),
+            role: compte.role || 'lecteur',
+            proprietaire: compte.proprietaire || 'Utilisateur'
+          };
+        });
+        setComptesPartages(comptesPartagesFormatted);
+      } else {
+        console.log('❌ Erreur lors du chargement des comptes partagés:', result.error);
+        setSharedError(result.error);
+      }
+    } catch (err) {
+      console.log('❌ Exception lors du chargement des comptes partagés:', err);
+      const errorMessage = 'Erreur lors du chargement des comptes partagés';
+      setSharedError(errorMessage);
+    } finally {
+      setSharedLoading(false);
+    }
+  };
+
   // Fonction pour obtenir la couleur selon le type de compte (thème vert)
   const getCouleurParType = (type) => {
     switch (type) {
@@ -103,6 +153,7 @@ const PortefeuilleScreen = ({ onBack }) => {
     setRefreshing(true);
     setCurrentPage(1); // Remettre à la première page lors du rafraîchissement
     loadComptes();
+    loadComptesPartages();
   };
 
   // Fonction pour calculer la pagination
@@ -150,10 +201,45 @@ const PortefeuilleScreen = ({ onBack }) => {
     setHistoriqueModalVisible(false);
   };
 
+  // Fonction pour calculer les statistiques des comptes
+  const calculateStats = (comptesList) => {
+    const total = comptesList.length;
+    const totalBalance = comptesList.reduce((total, compte) => {
+      const solde = parseFloat(compte.solde.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+      return total + solde;
+    }, 0);
+    const averageBalance = total > 0 ? totalBalance / total : 0;
+    
+    return {
+      total,
+      totalBalance,
+      averageBalance
+    };
+  };
+
+  // Calculer les statistiques
+  const stats = calculateStats(comptes);
+  const sharedStats = calculateStats(comptesPartages);
+
   // Charger les comptes au montage du composant
   useEffect(() => {
     loadComptes();
   }, []);
+
+  // Exposer la fonction de rechargement au parent (une seule fois)
+  useEffect(() => {
+    if (onRefreshCallback) {
+      onRefreshCallback(loadComptes);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Dépendances vides pour éviter la boucle infinie
+
+  // Charger les comptes partagés quand userInfo est disponible
+  useEffect(() => {
+    if (userInfo?.id_user) {
+      loadComptesPartages();
+    }
+  }, [userInfo]);
 
   // Fonction pour créer un nouveau compte
   const createCompte = async () => {
@@ -305,7 +391,8 @@ const PortefeuilleScreen = ({ onBack }) => {
 
     setSharing(true);
     try {
-      const result = await accountService.shareAccount(sharingCompte.id, {
+      const result = await sharedAccountsService.shareAccount({
+        id_compte: sharingCompte.id,
         email: shareEmail.trim(),
         role: shareRole
       });
@@ -313,6 +400,8 @@ const PortefeuilleScreen = ({ onBack }) => {
       if (result.success) {
         Alert.alert('Succès', 'Compte partagé avec succès');
         closeShareModal();
+        // Recharger les comptes partagés après un partage réussi
+        loadComptesPartages();
       } else {
         Alert.alert('Erreur', result.error);
       }
@@ -397,8 +486,16 @@ const PortefeuilleScreen = ({ onBack }) => {
             <View style={styles.statIconContainer}>
               <Feather name="layers" size={24} color="#059669" />
             </View>
-            <Text style={styles.statValue}>{comptes.length}</Text>
-            <Text style={styles.statLabel}>Total des comptes</Text>
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Mes comptes</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Feather name="users" size={24} color="#8b5cf6" />
+            </View>
+            <Text style={styles.statValue}>{sharedStats.total}</Text>
+            <Text style={styles.statLabel}>Comptes partagés</Text>
           </View>
           
           <View style={styles.statCard}>
@@ -406,20 +503,9 @@ const PortefeuilleScreen = ({ onBack }) => {
               <Feather name="dollar-sign" size={24} color="#3b82f6" />
             </View>
             <Text style={styles.statValue}>
-              {comptes.reduce((total, compte) => {
-                const solde = parseFloat(compte.solde.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-                return total + solde;
-              }, 0).toLocaleString('fr-FR')} Ar
+              {stats.totalBalance.toLocaleString('fr-FR')} Ar
             </Text>
             <Text style={styles.statLabel}>Solde total</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Feather name="user-plus" size={24} color="#8b5cf6" />
-            </View>
-            <Text style={styles.statValue}>2</Text>
-            <Text style={styles.statLabel}>Comptes partagés</Text>
           </View>
           
           <View style={styles.statCard}>
@@ -427,13 +513,7 @@ const PortefeuilleScreen = ({ onBack }) => {
               <Feather name="pie-chart" size={24} color="#6366f1" />
             </View>
             <Text style={styles.statValue}>
-              {comptes.length > 0
-                ? (comptes.reduce((total, compte) => {
-                    const solde = parseFloat(compte.solde.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-                    return total + solde;
-                  }, 0) / comptes.length).toLocaleString('fr-FR') + ' Ar'
-                : '0 Ar'
-              }
+              {stats.averageBalance.toLocaleString('fr-FR')} Ar
             </Text>
             <Text style={styles.statLabel}>Solde moyen</Text>
           </View>
@@ -607,6 +687,124 @@ const PortefeuilleScreen = ({ onBack }) => {
         )}
       </View>
 
+      {/* Section Comptes partagés */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Comptes partagés</Text>
+            <Text style={styles.sectionSubtitle}>Comptes partagés avec vous par d'autres utilisateurs</Text>
+          </View>
+          <View style={styles.realtimeIndicator}>
+            <View style={styles.realtimeDot} />
+            <Text style={styles.realtimeText}>En temps réel</Text>
+          </View>
+        </View>
+        
+        {sharedLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#059669" />
+            <Text style={styles.loadingText}>Chargement des comptes partagés...</Text>
+          </View>
+        ) : sharedError ? (
+          <View style={styles.errorContainer}>
+            <Feather name="alert-circle" size={48} color="#ef4444" />
+            <Text style={styles.errorTitle}>Erreur de chargement</Text>
+            <Text style={styles.errorText}>{sharedError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadComptesPartages}>
+              <Text style={styles.retryButtonText}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        ) : comptesPartages.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Feather name="users" size={64} color="#d1d5db" />
+            </View>
+            <Text style={styles.emptyTitle}>Aucun compte partagé</Text>
+            <Text style={styles.emptyText}>Les comptes partagés avec vous apparaîtront ici</Text>
+          </View>
+        ) : (
+          <View style={styles.accountsGrid}>
+            {comptesPartages.map((compte) => (
+              <View key={`shared-${compte.id}`} style={[styles.compteCard, styles.sharedCompteCard]}>
+                {/* Badge "Partagé" */}
+                <View style={styles.sharedBadge}>
+                  <Text style={styles.sharedBadgeText}>Partagé</Text>
+                </View>
+                
+                {/* Élément décoratif de fond */}
+                <View style={styles.cardBackground} />
+                
+                {/* En-tête de la carte */}
+                <View style={styles.compteHeader}>
+                  <View style={styles.compteLeft}>
+                    <View style={[styles.compteIcon, { backgroundColor: compte.couleur }]}>
+                      <Feather name="wallet" size={20} color="#fff" />
+                    </View>
+                    <View style={styles.compteInfo}>
+                      <Text style={styles.compteNom}>{compte.nom}</Text>
+                      <View style={styles.compteTypeContainer}>
+                        <View style={[styles.typeBadge, { backgroundColor: compte.couleur + '20' }]}>
+                          <Text style={[styles.compteType, { color: compte.couleur }]}>
+                            {compte.type === 'principal' ? 'Principal' : 
+                             compte.type === 'epargne' ? 'Épargne' : 
+                             compte.type === 'investissement' ? 'Investissement' :
+                             compte.type === 'courant' ? 'Courant' :
+                             compte.type === 'trading' ? 'Trading' : 'Autre'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {/* Badge du rôle */}
+                  <View style={styles.roleBadge}>
+                    <Text style={[
+                      styles.roleBadgeText,
+                      compte.role === 'proprietaire' && styles.roleBadgeProprietaire,
+                      compte.role === 'contributeur' && styles.roleBadgeContributeur,
+                      compte.role === 'lecteur' && styles.roleBadgeLecteur
+                    ]}>
+                      {compte.role === 'proprietaire' ? 'Propriétaire' :
+                       compte.role === 'contributeur' ? 'Contributeur' : 'Lecteur'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Solde principal */}
+                <View style={styles.soldeSection}>
+                  <Text style={styles.soldeMontant}>{compte.solde}</Text>
+                  <Text style={styles.soldeLabel}>Solde actuel</Text>
+                  <View style={styles.trendIndicator} />
+                </View>
+
+                {/* Section propriétaire */}
+                <View style={styles.sharedAccessSection}>
+                  <View style={styles.sharedAccessContent}>
+                    <View style={styles.sharedAccessInfo}>
+                      <Feather name="user" size={16} color="#6b7280" />
+                      <Text style={styles.sharedAccessText}>Propriétaire</Text>
+                    </View>
+                    <View style={styles.proprietaireInfo}>
+                      <View style={styles.userAvatar}>
+                        <Text style={styles.userInitial}>
+                          {compte.proprietaire ? compte.proprietaire.charAt(0).toUpperCase() : 'U'}
+                        </Text>
+                      </View>
+                      <Text style={styles.proprietaireName}>{compte.proprietaire}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Indicateur d'activité */}
+                <View style={styles.activityIndicator}>
+                  <View style={styles.activityDot} />
+                  <Text style={styles.activityText}>Partagé</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Modal pour ajouter un compte */}
       <Modal
@@ -1168,6 +1366,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1e293b',
     letterSpacing: -0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 4,
+    fontWeight: '500',
   },
   realtimeIndicator: {
     flexDirection: 'row',
@@ -1867,6 +2071,61 @@ const styles = StyleSheet.create({
     color: '#047857',
     fontWeight: '500',
     marginBottom: 4,
+  },
+  // Styles pour les comptes partagés
+  sharedCompteCard: {
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  sharedBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 16,
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  sharedBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  roleBadgeProprietaire: {
+    color: '#7c3aed',
+  },
+  roleBadgeContributeur: {
+    color: '#2563eb',
+  },
+  roleBadgeLecteur: {
+    color: '#6b7280',
+  },
+  proprietaireInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  proprietaireName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
   },
 });
 

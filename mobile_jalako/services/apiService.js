@@ -558,15 +558,28 @@ export const accountService = {
     }
   },
 
-  // Obtenir les comptes partagés
-  getSharedAccounts: async (id) => {
+  // Obtenir les comptes partagés d'un utilisateur
+  getSharedAccounts: async (id_user) => {
     try {
-      const response = await apiClient.get(`/comptes-partages/${id}`);
+      const response = await apiClient.get(`/comptes-partages/user/${id_user}`);
       return { success: true, data: response.data };
     } catch (error) {
       return {
         success: false,
         error: error.response?.data?.message || 'Erreur lors du chargement des comptes partagés',
+      };
+    }
+  },
+
+  // Obtenir les utilisateurs ayant accès à un compte
+  getAccountSharedUsers: async (id_compte) => {
+    try {
+      const response = await apiClient.get(`/comptes-partages/compte/${id_compte}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des utilisateurs partagés',
       };
     }
   },
@@ -907,6 +920,74 @@ export const depensesService = {
       return {
         success: false,
         error: error.response?.data?.message || 'Erreur lors du chargement de la dépense',
+      };
+    }
+  },
+};
+
+// Service dédié aux comptes partagés
+export const sharedAccountsService = {
+  // Obtenir les comptes partagés d'un utilisateur
+  getSharedAccountsByUser: async (id_user) => {
+    try {
+      const response = await apiClient.get(`/comptes-partages/user/${id_user}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des comptes partagés',
+      };
+    }
+  },
+
+  // Obtenir les utilisateurs ayant accès à un compte
+  getUsersByAccount: async (id_compte) => {
+    try {
+      const response = await apiClient.get(`/comptes-partages/compte/${id_compte}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des utilisateurs partagés',
+      };
+    }
+  },
+
+  // Partager un compte avec un utilisateur
+  shareAccount: async (shareData) => {
+    try {
+      const response = await apiClient.post('/comptes-partages', shareData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du partage du compte',
+      };
+    }
+  },
+
+  // Modifier le rôle d'un utilisateur sur un compte partagé
+  updateUserRole: async (id, role) => {
+    try {
+      const response = await apiClient.put(`/comptes-partages/${id}`, { role });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la modification du rôle',
+      };
+    }
+  },
+
+  // Supprimer un partage de compte
+  removeShare: async (id) => {
+    try {
+      await apiClient.delete(`/comptes-partages/${id}`);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la suppression du partage',
       };
     }
   },
