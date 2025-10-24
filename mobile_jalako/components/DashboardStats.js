@@ -52,7 +52,7 @@ const DashboardStats = () => {
       value: formatCurrency(dashboardData.totalBalance),
       change: '',
       changeType: 'positive',
-      icon: 'wallet',
+      icon: 'layers',
       color: '#3b82f6'
     },
     {

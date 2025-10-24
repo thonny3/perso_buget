@@ -17,7 +17,7 @@ import { depensesService, categoryService, compteService } from '../../services/
 
 const { width } = Dimensions.get('window');
 
-const DepensesScreen = () => {
+const DepensesScreen = ({ onBack }) => {
   // États principaux
   const [depenses, setDepenses] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -296,9 +296,14 @@ const DepensesScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Mes Dépenses</Text>
-              <Text style={styles.subtitle}>Gérez et analysez vos dépenses quotidiennes</Text>
+            <View style={styles.titleContainer}>
+              <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                <Feather name="arrow-left" size={24} color="#374151" />
+              </TouchableOpacity>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.title}>Mes Dépenses</Text>
+                <Text style={styles.subtitle}>Gérez et analysez vos dépenses quotidiennes</Text>
+              </View>
             </View>
           <TouchableOpacity 
             style={styles.addButton}
@@ -778,6 +783,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   headerTextContainer: {
     flex: 1,

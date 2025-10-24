@@ -5,7 +5,7 @@ import Feather from 'react-native-vector-icons/Feather';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const DashboardHeader = ({ onMenuPress, userName = 'Utilisateur' }) => {
+const DashboardHeader = ({ onMenuPress, userName = 'Utilisateur', title = 'Tableau de bord' }) => {
   const userInitial = userName.charAt(0).toUpperCase();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-50)).current;
@@ -58,7 +58,7 @@ const DashboardHeader = ({ onMenuPress, userName = 'Utilisateur' }) => {
               <Feather name="menu" size={22} color="#374151" />
             </TouchableOpacity>
           </Animated.View>
-          
+          <Text style={styles.titleText} numberOfLines={1}>{title}</Text>
         </View>
         
         <Animated.View style={[styles.headerRight, { transform: [{ translateX: slideAnim }] }]}>
@@ -90,6 +90,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  titleText: {
+    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    flexShrink: 1,
   },
   menuButton: {
     padding: 12,

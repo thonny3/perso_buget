@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
 import Feather from 'react-native-vector-icons/Feather';
 import { transactionService } from '../../services/apiService';
 
-const TransactionsScreen = () => {
+const TransactionsScreen = ({ onBack }) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -233,8 +233,15 @@ const TransactionsScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Transactions</Text>
-        <Text style={styles.subtitle}>Historique de vos mouvements</Text>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Feather name="arrow-left" size={24} color="#374151" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Mes Transactions</Text>
+            <Text style={styles.subtitle}>Historique de vos mouvements</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.filters}>
@@ -502,6 +509,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   title: {
     fontSize: 24,

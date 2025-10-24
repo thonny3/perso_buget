@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal,
 import Feather from 'react-native-vector-icons/Feather';
 import { revenuesService, accountService } from '../../services/apiService';
 
-const RevenusScreen = () => {
+const RevenusScreen = ({ onBack }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newRevenu, setNewRevenu] = useState({ montant: '', description: '', source: '', id_compte: '' });
   const [revenus, setRevenus] = useState([]);
@@ -164,8 +164,15 @@ const RevenusScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Revenus</Text>
-        <Text style={styles.subtitle}>Suivez vos sources de revenus</Text>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Feather name="arrow-left" size={24} color="#374151" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Mes Revenus</Text>
+            <Text style={styles.subtitle}>Suivez vos sources de revenus</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.summaryCard}>
@@ -408,6 +415,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   title: {
     fontSize: 24,

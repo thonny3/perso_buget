@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
 import Feather from 'react-native-vector-icons/Feather';
 import { accountService, authService } from '../../services/apiService';
 
-const PortefeuilleScreen = () => {
+const PortefeuilleScreen = ({ onBack }) => {
   const [comptes, setComptes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -371,9 +371,14 @@ const PortefeuilleScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.title}>Mes Comptes</Text>
-              <Text style={styles.subtitle}>Gérez vos comptes bancaires et financiers</Text>
+            <View style={styles.titleContainer}>
+              <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                <Feather name="arrow-left" size={24} color="#374151" />
+              </TouchableOpacity>
+              <View>
+                <Text style={styles.title}>Mes Comptes</Text>
+                <Text style={styles.subtitle}>Gérez vos comptes bancaires et financiers</Text>
+              </View>
             </View>
             <TouchableOpacity 
               style={styles.addButton}
@@ -1065,6 +1070,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   title: {
     fontSize: 32,

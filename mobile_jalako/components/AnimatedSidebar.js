@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Dimensions } from 'react-native';
+import { Animated, StyleSheet, Dimensions, Pressable } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -48,6 +48,7 @@ const AnimatedSidebar = ({ children, isVisible, onClose }) => {
         }
       ]}
     >
+      <Pressable style={styles.backdropTouchable} onPress={onClose} />
       <Animated.View
         style={[
           styles.sidebar,
@@ -71,6 +72,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     zIndex: 1000,
+  },
+  backdropTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   sidebar: {
     width: '85%',

@@ -77,6 +77,31 @@ const Dashboard = ({ onLogout }) => {
     loadUserData();
   }, [onLogout]);
 
+  const getTitleForScreen = () => {
+    switch (currentScreen) {
+      case 'dashboard':
+        return 'Tableau de bord';
+      case 'portefeuille':
+        return '';
+      case 'transactions':
+        return '';
+      case 'budget':
+        return '';
+      case 'depenses':
+        return '';
+      case 'revenus':
+        return '';
+      case 'objectifs':
+        return '';
+      case 'transferts':
+        return '';
+      case 'abonnements':
+        return '';
+      default:
+        return '';
+    }
+  };
+
   const renderCurrentScreen = () => {
     switch (currentScreen) {
       case 'dashboard':
@@ -88,15 +113,15 @@ const Dashboard = ({ onLogout }) => {
           </>
         );
       case 'portefeuille':
-        return <PortefeuilleScreen />;
+        return <PortefeuilleScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'transactions':
-        return <TransactionsScreen />;
+        return <TransactionsScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'budget':
-        return <BudgetScreen />;
+        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'depenses':
-        return <DepensesScreen />;
+        return <DepensesScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'revenus':
-        return <RevenusScreen />;
+        return <RevenusScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'objectifs':
         return <BudgetScreen />; // Temporaire, à remplacer par ObjectifsScreen
       case 'transferts':
@@ -116,12 +141,15 @@ const Dashboard = ({ onLogout }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <DashboardHeader
-        onMenuPress={handleMenuPress}
-        onNotificationPress={handleNotificationPress}
-        onSearchPress={handleSearchPress}
-        userName={userData?.nom || userData?.prenom || 'Utilisateur'}
-      />
+      {currentScreen === 'dashboard' && (
+        <DashboardHeader
+          onMenuPress={handleMenuPress}
+          onNotificationPress={handleNotificationPress}
+          onSearchPress={handleSearchPress}
+          userName={userData?.nom || userData?.prenom || 'Utilisateur'}
+          title={getTitleForScreen()}
+        />
+      )}
       
       <ScrollView 
         style={styles.scrollContainer}

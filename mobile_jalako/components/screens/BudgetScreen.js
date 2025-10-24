@@ -5,7 +5,7 @@ import { budgetService, categoryService } from '../../services/apiService';
 
 const { width } = Dimensions.get('window');
 
-const BudgetScreen = () => {
+const BudgetScreen = ({ onBack }) => {
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -236,9 +236,14 @@ const BudgetScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Gestion du Budget</Text>
-              <Text style={styles.subtitle}>Suivez vos dépenses - {formatMonthDisplay(selectedMonth)}</Text>
+            <View style={styles.titleContainer}>
+              <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                <Feather name="arrow-left" size={24} color="#374151" />
+              </TouchableOpacity>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.title}>Mon Budget</Text>
+                <Text style={styles.subtitle}>Suivez vos dépenses - {formatMonthDisplay(selectedMonth)}</Text>
+              </View>
             </View>
             <TouchableOpacity 
               style={styles.addButton}
@@ -582,6 +587,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   headerTextContainer: {
     flex: 1,
