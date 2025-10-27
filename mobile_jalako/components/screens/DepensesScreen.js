@@ -13,11 +13,12 @@ import {
   Dimensions 
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import { depensesService, categoryService, compteService } from '../../services/apiService';
+import { depensesService, categoryService, accountService } from '../../services/apiService';
+import EditDepenseFormScreen from '../EditDepenseFormScreen';
 
 const { width } = Dimensions.get('window');
 
-const DepensesScreen = ({ onBack }) => {
+const DepensesScreen = ({ onBack, onRefreshCallback }) => {
   // États principaux
   const [depenses, setDepenses] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -30,12 +31,16 @@ const DepensesScreen = ({ onBack }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isEditScreenOpen, setIsEditScreenOpen] = useState(false);
   const [selectedDepense, setSelectedDepense] = useState(null);
 
   // États pour les filtres
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
   const [filterDateRange, setFilterDateRange] = useState('all');
+  
+  // État pour la pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // États pour le formulaire
   const [formData, setFormData] = useState({
@@ -52,8 +57,17 @@ const DepensesScreen = ({ onBack }) => {
   const formatAmount = (amount) => {
     const numAmount = Number(amount);
     if (isNaN(numAmount) || amount === null || amount === undefined) {
-      return '0.00';
+      return '0';
     }
+    
+    // Si c'est un nombre entier, ne pas afficher de décimales
+    if (numAmount % 1 === 0) {
+      return numAmount.toLocaleString('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+    
     return numAmount.toLocaleString('fr-FR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -70,26 +84,57 @@ const DepensesScreen = ({ onBack }) => {
   const loadData = async () => {
     try {
       setError(null);
+      console.log('🔄 Début du chargement des données...');
+      
       const [depensesResult, categoriesResult, comptesResult] = await Promise.all([
-        depensesService.getAllDepenses(),
-        categoryService.getCategories(),
-        compteService.getAllComptes()
+        depensesService.getDepenses(),
+        categoryService.getCategoriesDepenses(),
+        accountService.getMyAccounts()
       ]);
 
-      if (depensesResult.success) {
+      console.log('📊 Résultats des appels API:');
+      console.log('  - Dépenses:', depensesResult);
+      console.log('  - Catégories:', categoriesResult);
+      console.log('  - Comptes:', comptesResult);
+
+      // Vérifier si les dépenses sont disponibles (même si success est false)
+      if (depensesResult.data && Array.isArray(depensesResult.data)) {
+        console.log('✅ Dépenses chargées:', depensesResult.data.length, 'dépenses');
+        console.log('📋 Données dépenses (avec id_compte):', depensesResult.data.map(d => ({
+          id: d.id || d.id_depense,
+          description: d.description,
+          id_compte: d.id_compte,
+          montant: d.montant,
+          user_prenom: d.user_prenom,
+          user_nom: d.user_nom
+        })));
         setDepenses(depensesResult.data);
+        setError(null); // Effacer l'erreur si on a des données
+      } else if (depensesResult.success && depensesResult.data) {
+        console.log('✅ Dépenses chargées (success=true):', depensesResult.data?.length || 0, 'dépenses');
+        setDepenses(depensesResult.data || []);
       } else {
-        setError(depensesResult.error);
+        console.error('❌ Erreur chargement dépenses:', depensesResult.error);
+        console.error('❌ Structure depensesResult:', JSON.stringify(depensesResult, null, 2));
+        setError(depensesResult.error || 'Erreur inconnue lors du chargement des dépenses');
       }
 
       if (categoriesResult.success) {
+        console.log('✅ Catégories chargées:', categoriesResult.data?.length || 0);
         setCategories(categoriesResult.data);
       }
 
       if (comptesResult.success) {
+        console.log('✅ Comptes chargés:', comptesResult.data?.length || 0);
+        console.log('📋 Structure des comptes:', JSON.stringify(comptesResult.data, null, 2));
         setComptes(comptesResult.data);
+      } else {
+        console.error('❌ Erreur chargement comptes:', comptesResult.error);
+        console.error('❌ Structure comptesResult:', JSON.stringify(comptesResult, null, 2));
       }
     } catch (err) {
+      console.error('❌ Erreur dans loadData:', err);
+      console.error('❌ Stack trace:', err.stack);
       const errorMessage = 'Erreur lors du chargement des données';
       setError(errorMessage);
       Alert.alert('Erreur', errorMessage);
@@ -101,9 +146,10 @@ const DepensesScreen = ({ onBack }) => {
 
   // Filtrage des dépenses
   const filteredDepenses = depenses.filter(depense => {
-    const matchesSearch = depense.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
-    const matchesCategory = filterCategory === 'all' || depense.id_categorie_depense?.toString() === filterCategory;
+    // Filtre de recherche
+    const matchesSearch = (depense.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
+    // Filtre par date
     let matchesDate = true;
     if (filterDateRange !== 'all') {
       const depenseDate = new Date(depense.date_depense);
@@ -121,18 +167,50 @@ const DepensesScreen = ({ onBack }) => {
           const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
           matchesDate = depenseDate >= monthAgo;
           break;
+        default:
+          matchesDate = true;
       }
     }
     
-    return matchesSearch && matchesCategory && matchesDate;
+    return matchesSearch && matchesDate;
   });
+
+  // Logs de débogage pour le filtrage
+  console.log('🔍 Filtrage des dépenses:');
+  console.log('  - Total dépenses:', depenses.length);
+  console.log('  - Dépenses filtrées:', filteredDepenses.length);
+  console.log('  - Filtres appliqués:', { searchTerm, filterDateRange });
+
+  // Logique de pagination
+  const totalPages = Math.ceil(filteredDepenses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedDepenses = filteredDepenses.slice(startIndex, endIndex);
+
+  // Réinitialiser la page si elle est trop grande
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
 
   // Calculs statistiques
   const totalDepenses = depenses.reduce((sum, depense) => sum + safeNumber(depense.montant), 0);
+  
+  // Dépenses du mois
   const monthlyDepenses = depenses.filter(depense => {
     const depenseDate = new Date(depense.date_depense);
     const today = new Date();
     return depenseDate.getMonth() === today.getMonth() && depenseDate.getFullYear() === today.getFullYear();
+  }).reduce((sum, depense) => sum + safeNumber(depense.montant), 0);
+  
+  // Dépenses d'aujourd'hui
+  const todayDepenses = depenses.filter(depense => {
+    const depenseDate = new Date(depense.date_depense);
+    const today = new Date();
+    return depenseDate.getDate() === today.getDate() && 
+           depenseDate.getMonth() === today.getMonth() && 
+           depenseDate.getFullYear() === today.getFullYear();
   }).reduce((sum, depense) => sum + safeNumber(depense.montant), 0);
 
   const categoryStats = categories.map(category => {
@@ -212,14 +290,7 @@ const DepensesScreen = ({ onBack }) => {
 
   const handleEdit = (depense) => {
     setSelectedDepense(depense);
-    setFormData({
-      description: depense.description || '',
-      montant: depense.montant?.toString() || '',
-      date_depense: depense.date_depense ? new Date(depense.date_depense).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      id_categorie_depense: depense.id_categorie_depense?.toString() || '',
-      id_compte: depense.id_compte?.toString() || ''
-    });
-    setIsFormOpen(true);
+    setIsEditScreenOpen(true);
   };
 
   const handleDelete = (depense) => {
@@ -259,14 +330,44 @@ const DepensesScreen = ({ onBack }) => {
   };
 
   const getAccountName = (accountId) => {
-    const account = comptes.find(c => c.id === accountId);
+    // Debug logs
+    console.log('🔍 getAccountName - accountId:', accountId, 'type:', typeof accountId);
+    console.log('🔍 getAccountName - comptes disponibles:', comptes);
+    
+    // Try to find account by id_compte (database column name) or id (mapped name)
+    const account = comptes.find(c => {
+      // Try both id_compte (database column) and id (if mapped)
+      return (c.id_compte && (c.id_compte == accountId || String(c.id_compte) === String(accountId))) ||
+             (c.id && (c.id == accountId || String(c.id) === String(accountId)));
+    });
+    
+    console.log('🔍 getAccountName - compte trouvé:', account);
+    
+    if (!account) {
+      console.log('⚠️ Compte non trouvé pour id:', accountId);
+      console.log('⚠️ IDs disponibles:', comptes.map(c => ({ id_compte: c.id_compte, id: c.id })));
+    }
+    
     return account ? account.nom : 'Compte inconnu';
   };
 
   // Charger les données au montage
   useEffect(() => {
+    // Réinitialiser les filtres au chargement
+    setSearchTerm('');
+    setFilterDateRange('all');
     loadData();
   }, []);
+
+  // Enregistrer la callback de rafraîchissement
+  useEffect(() => {
+    if (onRefreshCallback) {
+      onRefreshCallback(() => {
+        console.log('🔄 Rafraîchissement des dépenses depuis Dashboard...');
+        loadData();
+      });
+    }
+  }, [onRefreshCallback]);
 
   // Affichage de chargement
   if (loading) {
@@ -320,11 +421,12 @@ const DepensesScreen = ({ onBack }) => {
         
       {/* Statistiques */}
       <View style={styles.statsSection}>
-        <View style={styles.statsGrid}>
+        {/* Première ligne : 2 colonnes */}
+        <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
-              <Feather name="credit-card" size={24} color="#3b82f6" />
-              </View>
+              <Feather name="credit-card" size={20} color="#3b82f6" />
+            </View>
             <Text style={styles.statValue}>
               {formatAmount(totalDepenses)} Ar
             </Text>
@@ -333,30 +435,25 @@ const DepensesScreen = ({ onBack }) => {
           
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
-              <Feather name="calendar" size={24} color="#ef4444" />
+              <Feather name="calendar" size={20} color="#ef4444" />
             </View>
             <Text style={styles.statValue}>
               {formatAmount(monthlyDepenses)} Ar
             </Text>
             <Text style={styles.statLabel}>Ce mois</Text>
           </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Feather name="shopping-cart" size={24} color="#16a34a" />
+        </View>
+        
+        {/* Deuxième ligne : 1 colonne pleine largeur */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCardFull}>
+            <View style={styles.statIconContainerFull}>
+              <Feather name="clock" size={24} color="#f59e0b" />
             </View>
-            <Text style={styles.statValue}>{depenses.length}</Text>
-            <Text style={styles.statLabel}>Nombre de dépenses</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Feather name="bar-chart-3" size={24} color="#ea580c" />
-            </View>
-            <Text style={styles.statValue}>
-              {formatAmount(depenses.length > 0 ? (totalDepenses / 30) : 0)} Ar
+            <Text style={styles.statValueFull}>
+              {formatAmount(todayDepenses)} Ar
             </Text>
-            <Text style={styles.statLabel}>Moyenne journalière</Text>
+            <Text style={styles.statLabelFull}>Dépense aujourd'hui</Text>
           </View>
         </View>
       </View>
@@ -430,34 +527,40 @@ const DepensesScreen = ({ onBack }) => {
           />
         </View>
         
-        <View style={styles.filterRow}>
-          <View style={styles.filterContainer}>
-            <Feather name="filter" size={20} color="#6b7280" />
-            <View style={styles.filterSelector}>
-              <Text style={styles.filterLabel}>Catégorie:</Text>
-              <TouchableOpacity style={styles.filterButton}>
-                <Text style={styles.filterText}>
-                  {filterCategory === 'all' ? 'Toutes les catégories' : getCategoryName(filterCategory)}
-                </Text>
-                <Feather name="chevron-down" size={16} color="#6b7280" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <View style={styles.filterContainer}>
-            <Feather name="calendar" size={20} color="#6b7280" />
-            <View style={styles.filterSelector}>
-              <Text style={styles.filterLabel}>Période:</Text>
-              <TouchableOpacity style={styles.filterButton}>
-                <Text style={styles.filterText}>
-                  {filterDateRange === 'all' ? 'Toutes les dates' : 
-                   filterDateRange === 'today' ? "Aujourd'hui" :
-                   filterDateRange === 'week' ? 'Cette semaine' : 'Ce mois'}
-                </Text>
-                <Feather name="chevron-down" size={16} color="#6b7280" />
-              </TouchableOpacity>
-            </View>
-          </View>
+        {/* Filtres horizontaux */}
+        <View style={styles.filterButtonGroup}>
+          <TouchableOpacity 
+            style={[styles.filterDateButton, filterDateRange === 'all' && styles.filterDateButtonActive]}
+            onPress={() => setFilterDateRange('all')}
+          >
+            <Text style={[styles.filterDateButtonText, filterDateRange === 'all' && styles.filterDateButtonTextActive]}>
+              Toutes
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterDateButton, filterDateRange === 'today' && styles.filterDateButtonActive]}
+            onPress={() => setFilterDateRange('today')}
+          >
+            <Text style={[styles.filterDateButtonText, filterDateRange === 'today' && styles.filterDateButtonTextActive]}>
+              Aujourd'hui
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterDateButton, filterDateRange === 'week' && styles.filterDateButtonActive]}
+            onPress={() => setFilterDateRange('week')}
+          >
+            <Text style={[styles.filterDateButtonText, filterDateRange === 'week' && styles.filterDateButtonTextActive]}>
+              Semaine
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterDateButton, filterDateRange === 'month' && styles.filterDateButtonActive]}
+            onPress={() => setFilterDateRange('month')}
+          >
+            <Text style={[styles.filterDateButtonText, filterDateRange === 'month' && styles.filterDateButtonTextActive]}>
+              Mois
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -476,41 +579,53 @@ const DepensesScreen = ({ onBack }) => {
             <View style={styles.emptyIconContainer}>
               <Feather name="credit-card" size={64} color="#d1d5db" />
             </View>
-            <Text style={styles.emptyTitle}>Aucune dépense trouvée</Text>
+            <Text style={styles.emptyTitle}>
+              {loading ? "Chargement..." : "Aucune dépense trouvée"}
+            </Text>
             <Text style={styles.emptyText}>
-              {filteredDepenses.length === 0 && depenses.length > 0 
-                ? "Essayez de modifier vos filtres de recherche" 
-                : "Commencez par ajouter votre première dépense"
+              {loading 
+                ? "Chargement de vos dépenses..." 
+                : filteredDepenses.length === 0 && depenses.length > 0 
+                  ? "Essayez de modifier vos filtres de recherche" 
+                  : "Commencez par ajouter votre première dépense"
               }
             </Text>
             <TouchableOpacity style={styles.createDepenseButton} onPress={() => setIsFormOpen(true)}>
               <Text style={styles.createDepenseButtonText}>Ajouter une dépense</Text>
             </TouchableOpacity>
+            
+            {/* Bouton de débogage temporaire */}
+            <TouchableOpacity 
+              style={[styles.createDepenseButton, { backgroundColor: '#6b7280', marginTop: 10 }]} 
+              onPress={() => {
+                console.log('🔍 DEBUG INFO:');
+                console.log('  - Dépenses brutes:', depenses);
+                console.log('  - Dépenses filtrées:', filteredDepenses);
+                console.log('  - Filtres:', { searchTerm, filterDateRange });
+                console.log('  - Loading:', loading);
+                console.log('  - Error:', error);
+                Alert.alert('Debug Info', `Dépenses: ${depenses.length}, Filtrées: ${filteredDepenses.length}`);
+              }}
+            >
+              <Text style={styles.createDepenseButtonText}>🔍 Debug Info</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.depensesList}>
-            {filteredDepenses.map((depense) => (
-              <TouchableOpacity 
-                key={depense.id_depense || depense.id} 
-                style={styles.depenseCard} 
-                activeOpacity={0.7}
-                onPress={() => handleDetails(depense)}
-              >
-            <View style={styles.depenseLeft}>
-                  <View style={[styles.depenseIcon, { backgroundColor: getCategoryColor(depense.id_categorie_depense) }]}>
-                <Feather name="arrow-down-right" size={16} color="#fff" />
-              </View>
-              <View style={styles.depenseInfo}>
-                <Text style={styles.depenseDescription}>{depense.description}</Text>
-                    <Text style={styles.depenseCategorie}>{getCategoryName(depense.id_categorie_depense)}</Text>
-                    <Text style={styles.depenseAccount}>{getAccountName(depense.id_compte)}</Text>
-                    <Text style={styles.depenseDate}>
-                      {new Date(depense.date_depense).toLocaleDateString('fr-FR')}
-                    </Text>
-              </View>
-            </View>
-                <View style={styles.depenseRight}>
-                  <Text style={styles.depenseMontant}>-{formatAmount(depense.montant)} Ar</Text>
+            {paginatedDepenses.map((depense) => (
+              <View key={depense.id_depense || depense.id} style={styles.depenseCard}>
+                {/* En-tête avec description, montant et boutons d'action */}
+                <View style={styles.depenseHeader}>
+                  <TouchableOpacity 
+                    style={styles.depenseHeaderContent}
+                    activeOpacity={0.7}
+                    onPress={() => handleDetails(depense)}
+                  >
+                    <View style={styles.depenseTitleRow}>
+                      <Text style={styles.depenseDescription}>{depense.description}</Text>
+                      <Text style={styles.depenseMontant}>-{formatAmount(depense.montant)} Ar</Text>
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.depenseActions}>
                     <TouchableOpacity 
                       style={styles.actionButton}
@@ -526,8 +641,58 @@ const DepensesScreen = ({ onBack }) => {
                     </TouchableOpacity>
                   </View>
                 </View>
-          </TouchableOpacity>
+                
+                {/* Corps avec icône et détails */}
+                <TouchableOpacity 
+                  style={styles.depenseBody}
+                  activeOpacity={0.7}
+                  onPress={() => handleDetails(depense)}
+                >
+                  <View style={styles.depenseLeft}>
+                    <View style={[styles.depenseIcon, { backgroundColor: getCategoryColor(depense.id_categorie_depense) }]}>
+                      <Feather name="arrow-down-right" size={16} color="#fff" />
+                    </View>
+                    <View style={styles.depenseInfo}>
+                      <Text style={styles.depenseCategorie}>{getCategoryName(depense.id_categorie_depense)}</Text>
+                      <Text style={styles.depenseAccount}>{getAccountName(depense.id_compte)}</Text>
+                      {(depense.user_prenom || depense.user_nom) && (
+                        <Text style={styles.depenseUser}>
+                          Par {depense.user_prenom || ''} {depense.user_nom || ''}
+                        </Text>
+                      )}
+                      <Text style={styles.depenseDate}>
+                        {new Date(depense.date_depense).toLocaleDateString('fr-FR')}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
         ))}
+          </View>
+        )}
+        
+        {/* Pagination */}
+        {filteredDepenses.length > itemsPerPage && (
+          <View style={styles.paginationContainer}>
+            <TouchableOpacity 
+              style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+              onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              <Feather name="chevron-left" size={20} color={currentPage === 1 ? "#d1d5db" : "#3b82f6"} />
+            </TouchableOpacity>
+            
+            <Text style={styles.paginationText}>
+              Page {currentPage} sur {totalPages}
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+              onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <Feather name="chevron-right" size={20} color={currentPage === totalPages ? "#d1d5db" : "#3b82f6"} />
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -594,13 +759,13 @@ const DepensesScreen = ({ onBack }) => {
                       key={category.id}
                       style={[
                         styles.categoryOption,
-                        formData.id_categorie_depense === category.id.toString() && styles.categoryOptionSelected
+                        formData.id_categorie_depense === String(category.id) && styles.categoryOptionSelected
                       ]}
-                      onPress={() => setFormData({...formData, id_categorie_depense: category.id.toString()})}
+                      onPress={() => setFormData({...formData, id_categorie_depense: String(category.id)})}
                     >
                       <Text style={[
                         styles.categoryOptionText,
-                        formData.id_categorie_depense === category.id.toString() && styles.categoryOptionTextSelected
+                        formData.id_categorie_depense === String(category.id) && styles.categoryOptionTextSelected
                       ]}>
                         {category.nom}
                       </Text>
@@ -618,13 +783,13 @@ const DepensesScreen = ({ onBack }) => {
                       key={compte.id}
                       style={[
                         styles.categoryOption,
-                        formData.id_compte === compte.id.toString() && styles.categoryOptionSelected
+                        formData.id_compte === String(compte.id) && styles.categoryOptionSelected
                       ]}
-                      onPress={() => setFormData({...formData, id_compte: compte.id.toString()})}
+                      onPress={() => setFormData({...formData, id_compte: String(compte.id)})}
                     >
                       <Text style={[
                         styles.categoryOptionText,
-                        formData.id_compte === compte.id.toString() && styles.categoryOptionTextSelected
+                        formData.id_compte === String(compte.id) && styles.categoryOptionTextSelected
                       ]}>
                         {compte.nom} ({compte.type})
                       </Text>
@@ -709,6 +874,15 @@ const DepensesScreen = ({ onBack }) => {
                     {getAccountName(selectedDepense.id_compte)}
                   </Text>
                 </View>
+
+                {(selectedDepense.user_prenom || selectedDepense.user_nom) && (
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Créé par</Text>
+                    <Text style={styles.detailsValue}>
+                      {selectedDepense.user_prenom || ''} {selectedDepense.user_nom || ''}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -761,6 +935,20 @@ const DepensesScreen = ({ onBack }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Écran d'édition des dépenses */}
+      <EditDepenseFormScreen
+        visible={isEditScreenOpen}
+        onClose={() => {
+          setIsEditScreenOpen(false);
+          setSelectedDepense(null);
+        }}
+        depenseData={selectedDepense}
+        onSuccess={(data) => {
+          console.log('✅ Dépense modifiée avec succès:', data);
+          loadData();
+        }}
+      />
     </ScrollView>
   );
 };
@@ -831,16 +1019,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  statsGrid: {
+  statsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginBottom: 12,
     gap: 12,
   },
   statCard: {
-    width: '48%',
+    flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  statCardFull: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
@@ -852,23 +1054,45 @@ const styles = StyleSheet.create({
     borderColor: '#f1f5f9',
   },
   statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statIconContainerFull: {
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#fef3c7',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: '#1e293b',
     marginBottom: 4,
     textAlign: 'center',
   },
+  statValueFull: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statLabelFull: {
+    fontSize: 14,
     color: '#64748b',
     fontWeight: '600',
     textAlign: 'center',
@@ -1055,6 +1279,40 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     fontWeight: '500',
   },
+  filterButtonGroup: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 4,
+  },
+  filterDateButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 25,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterDateButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  filterDateButtonText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  filterDateButtonTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
   depensesList: {
     gap: 12,
   },
@@ -1070,11 +1328,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f1f5f9',
   },
+  depenseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  depenseHeaderContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  depenseTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  depenseBody: {
+    width: '100%',
+  },
   depenseLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginBottom: 8,
   },
   depenseIcon: {
     width: 40,
@@ -1086,12 +1364,14 @@ const styles = StyleSheet.create({
   },
   depenseInfo: {
     flex: 1,
+    marginTop: 4,
   },
   depenseDescription: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1e293b',
-    marginBottom: 2,
+    flex: 1,
+    marginRight: 12,
   },
   depenseCategorie: {
     fontSize: 12,
@@ -1101,6 +1381,12 @@ const styles = StyleSheet.create({
   depenseAccount: {
     fontSize: 12,
     color: '#9ca3af',
+    marginBottom: 2,
+  },
+  depenseUser: {
+    fontSize: 11,
+    color: '#8b5cf6',
+    fontWeight: '500',
     marginBottom: 2,
   },
   depenseDate: {
@@ -1114,7 +1400,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ef4444',
-    marginBottom: 8,
   },
   depenseActions: {
     flexDirection: 'row',
@@ -1402,6 +1687,32 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 16,
+  },
+  paginationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#f8fafc',
+  },
+  paginationText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
   },
 });
 

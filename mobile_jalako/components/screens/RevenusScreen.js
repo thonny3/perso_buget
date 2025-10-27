@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal,
 import Feather from 'react-native-vector-icons/Feather';
 import { revenuesService, accountService } from '../../services/apiService';
 
-const RevenusScreen = ({ onBack, onRefreshCallback }) => {
+const RevenusScreen = ({ onBack, onRefreshCallback, navigation }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -219,17 +219,28 @@ const RevenusScreen = ({ onBack, onRefreshCallback }) => {
     setShowAddModal(false);
   };
 
-  // Fonction pour ouvrir le modal d'édition
-  const openEditModal = (revenu) => {
-    setEditingRevenu({
-      id_revenu: revenu.id_revenu,
-      description: revenu.description,
-      montant: revenu.montant.toString(),
-      source: revenu.source,
-      id_compte: revenu.id_compte,
-      date_revenu: revenu.date_revenu
-    });
-    setShowEditModal(true);
+  // Fonction pour ouvrir l'écran d'édition
+  const openEditScreen = (revenu) => {
+    if (navigation) {
+      navigation.navigate('EditFormScreen', {
+        revenuData: {
+          id_revenu: revenu.id_revenu,
+          id: revenu.id_revenu, // Pour compatibilité
+          source: revenu.source || revenu.description, // Mapper description vers source
+          montant: revenu.montant,
+          id_categorie_revenu: revenu.id_categorie_revenu,
+          id_compte: revenu.id_compte,
+          date_revenu: revenu.date_revenu
+        },
+        onSuccess: (updatedData) => {
+          console.log('✅ Revenu mis à jour:', updatedData);
+          loadRevenus(); // Recharger la liste des revenus
+        }
+      });
+    } else {
+      console.error('❌ Navigation non disponible');
+      Alert.alert('Erreur', 'Navigation non disponible');
+    }
   };
 
   // Fonction pour ouvrir le modal de suppression
@@ -543,7 +554,7 @@ const RevenusScreen = ({ onBack, onRefreshCallback }) => {
                 key={revenu.id_revenu || revenu.id} 
                 style={styles.revenuCard} 
                 activeOpacity={0.7}
-                onPress={() => openEditModal(revenu)}
+                onPress={() => openEditScreen(revenu)}
               >
                 {/* En-tête de la carte */}
                 <View style={styles.revenuCardHeader}>
@@ -560,7 +571,7 @@ const RevenusScreen = ({ onBack, onRefreshCallback }) => {
                   <View style={styles.revenuCardActions}>
                     <TouchableOpacity 
                       style={styles.revenuActionButton}
-                      onPress={() => openEditModal(revenu)}
+                      onPress={() => openEditScreen(revenu)}
                     >
                       <Feather name="edit-3" size={16} color="#3b82f6" />
                     </TouchableOpacity>

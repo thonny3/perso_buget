@@ -873,9 +873,13 @@ export const depensesService = {
   // Obtenir toutes les dépenses
   getDepenses: async (filters = {}) => {
     try {
+      console.log('🔄 getDepenses appelé avec filtres:', filters);
       const response = await apiClient.get('/depenses', { params: filters });
+      console.log('📊 getDepenses response:', response);
+      console.log('📊 getDepenses response.data:', response.data);
       return { success: true, data: response.data };
     } catch (error) {
+      console.error('❌ getDepenses error:', error);
       return {
         success: false,
         error: error.response?.data?.message || 'Erreur lors du chargement des dépenses',

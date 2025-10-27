@@ -33,9 +33,40 @@ const RevenuesController = {
 
     update: (req, res) => {
         const { id } = req.params;
-        Revenues.update(id, req.body, (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: "Revenu mis à jour" });
+        const id_user = req.user?.id_user;
+        if (!id_user) return res.status(401).json({ message: "Non autorisé" });
+        
+        console.log('📝 UPDATE REVENU - ID:', id);
+        console.log('📝 UPDATE REVENU - DATA:', req.body);
+        console.log('📝 UPDATE REVENU - USER:', id_user);
+        
+        // Récupérer le revenu pour vérifier que l'utilisateur en est propriétaire
+        Revenues.getById(id, (err, revenue) => {
+            if (err) {
+                console.error('❌ Erreur getById:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            if (!revenue || revenue.length === 0) {
+                console.error('❌ Revenu introuvable:', id);
+                return res.status(404).json({ message: "Revenu introuvable" });
+            }
+            
+            console.log('✅ Revenu trouvé:', revenue[0]);
+            
+            // Vérifier que le revenu appartient à l'utilisateur
+            if (revenue[0].id_user !== id_user) {
+                console.error('❌ Utilisateur non autorisé:', id_user, 'vs', revenue[0].id_user);
+                return res.status(403).json({ message: "Vous n'êtes pas autorisé à modifier ce revenu" });
+            }
+            
+            Revenues.update(id, req.body, (err) => {
+                if (err) {
+                    console.error('❌ Erreur update model:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                console.log('✅ Revenu mis à jour avec succès');
+                res.json({ message: "Revenu mis à jour", data: req.body });
+            });
         });
     },
 

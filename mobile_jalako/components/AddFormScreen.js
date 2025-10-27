@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService, revenuesService } from '../services/apiService';
+import { accountService, revenuesService, depensesService, categoryService } from '../services/apiService';
 
 const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   const [selectedType, setSelectedType] = useState(null);
@@ -45,7 +45,7 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     { id: 5, nom: 'Autres', couleur: '#6b7280', icon: 'more-horizontal' },
   ];
 
-  // Si on est dans portefeuille ou revenus, afficher directement le formulaire approprié
+  // Si on est dans portefeuille, revenus ou dépenses, afficher directement le formulaire approprié
   React.useEffect(() => {
     if (visible && currentScreen === 'portefeuille') {
       setSelectedType('compte');
@@ -55,6 +55,19 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
       setShowForm(true);
       loadComptes(); // Charger les comptes pour le formulaire de revenus
       loadCategories(); // Charger les catégories pour le formulaire de revenus
+    } else if (visible && currentScreen === 'depenses') {
+      setSelectedType('depense');
+      setShowForm(true);
+      // Initialiser les données du formulaire
+      setFormData({
+        description: '',
+        montant: '',
+        date_depense: new Date().toISOString().split('T')[0],
+        id_categorie_depense: '',
+        id_compte: ''
+      });
+      loadComptes(); // Charger les comptes pour le formulaire de dépenses
+      loadDepenseCategories(); // Charger les catégories pour le formulaire de dépenses
     } else if (visible) {
       setSelectedType(null);
       setShowForm(false);
@@ -108,6 +121,58 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
       // Utiliser les catégories par défaut en cas d'erreur
       setCategories(defaultCategories);
       console.log('🔄 Utilisation des catégories par défaut (erreur)');
+      Alert.alert('Erreur', 'Impossible de charger les catégories. Vérifiez votre connexion.');
+    }
+  };
+
+  // Charger les catégories pour le formulaire de dépenses
+  const loadDepenseCategories = async () => {
+    try {
+      console.log('🔄 Chargement des catégories de dépenses...');
+      const result = await categoryService.getCategoriesDepenses();
+      console.log('📊 Résultat du chargement des catégories de dépenses:', result);
+      if (result.success) {
+        setCategories(result.data || []);
+        console.log('✅ Catégories de dépenses chargées:', result.data);
+      } else {
+        console.error('❌ Erreur lors du chargement des catégories de dépenses:', result.error);
+        
+        // Utiliser les catégories par défaut en cas d'échec
+        setCategories([
+          { id: 1, nom: 'Alimentation' },
+          { id: 2, nom: 'Transport' },
+          { id: 3, nom: 'Logement' },
+          { id: 4, nom: 'Santé' },
+          { id: 5, nom: 'Loisirs' },
+          { id: 6, nom: 'Éducation' },
+          { id: 7, nom: 'Shopping' },
+          { id: 8, nom: 'Autres dépenses' }
+        ]);
+        console.log('🔄 Utilisation des catégories par défaut pour les dépenses');
+        
+        // Si c'est un problème d'authentification, afficher un message spécifique
+        if (result.requiresAuth) {
+          Alert.alert(
+            'Session expirée', 
+            'Votre session a expiré. Veuillez vous reconnecter pour continuer.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    } catch (err) {
+      console.error('❌ Erreur loadDepenseCategories:', err);
+      // Utiliser les catégories par défaut en cas d'erreur
+      setCategories([
+        { id: 1, nom: 'Alimentation' },
+        { id: 2, nom: 'Transport' },
+        { id: 3, nom: 'Logement' },
+        { id: 4, nom: 'Santé' },
+        { id: 5, nom: 'Loisirs' },
+        { id: 6, nom: 'Éducation' },
+        { id: 7, nom: 'Shopping' },
+        { id: 8, nom: 'Autres dépenses' }
+      ]);
+      console.log('🔄 Utilisation des catégories par défaut pour les dépenses (erreur)');
       Alert.alert('Erreur', 'Impossible de charger les catégories. Vérifiez votre connexion.');
     }
   };
@@ -209,6 +274,64 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
         }
       } catch (error) {
         console.error('Erreur lors de la création du revenu:', error);
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (selectedType === 'depense') {
+      // Validation pour la dépense
+      if (!formData.description || !formData.description.trim()) {
+        Alert.alert('Erreur', 'La description est requise');
+        return;
+      }
+      
+      if (!formData.montant || parseFloat(formData.montant) <= 0) {
+        Alert.alert('Erreur', 'Le montant doit être positif');
+        return;
+      }
+
+      if (!formData.id_categorie_depense) {
+        Alert.alert('Erreur', 'Veuillez sélectionner une catégorie');
+        return;
+      }
+
+      if (!formData.id_compte) {
+        Alert.alert('Erreur', 'Veuillez sélectionner un compte');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const depenseData = {
+          description: formData.description.trim(),
+          montant: parseFloat(formData.montant),
+          id_categorie_depense: parseInt(formData.id_categorie_depense),
+          id_compte: parseInt(formData.id_compte),
+          date_depense: formData.date_depense || new Date().toISOString().split('T')[0]
+        };
+
+        console.log('📤 ========== AJOUT DEPENSE ==========');
+        console.log('📋 formData:', formData);
+        console.log('📋 depenseData:', depenseData);
+        console.log('================================');
+
+        const result = await depensesService.createDepense(depenseData);
+        
+        console.log('✅ Résultat création dépense:', result);
+
+        if (result.success) {
+          console.log('Dépense créée avec succès:', result.data);
+          Alert.alert('Succès', 'Dépense ajoutée avec succès!');
+          
+          resetForm();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          console.error('Erreur lors de la création de la dépense:', result.error);
+          Alert.alert('Erreur', result.error || 'Erreur lors de la création de la dépense');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la création de la dépense:', error);
         Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
       } finally {
         setIsLoading(false);
@@ -570,6 +693,175 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     </View>
   );
 
+  const renderDepenseForm = () => (
+    <View style={styles.formContainer}>
+      {/* Header simplifié */}
+      <View style={styles.formHeader}>
+        <Text style={styles.formTitle}>Ajouter une dépense</Text>
+      </View>
+      
+      {/* Formulaire simplifié */}
+      <View style={styles.formContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Description</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ex: Courses Carrefour, Essence..."
+            placeholderTextColor="#9ca3af"
+            value={formData.description || ''}
+            onChangeText={(text) => setFormData({...formData, description: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant (Ar)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant || ''}
+            onChangeText={(text) => setFormData({...formData, montant: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Date</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#9ca3af"
+            value={formData.date_depense || new Date().toISOString().split('T')[0]}
+            onChangeText={(text) => setFormData({...formData, date_depense: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Compte</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsSelectOpen(!isSelectOpen)}
+          >
+            <Text style={styles.selectText}>
+              {comptes.find(c => (c.id_compte || c.id) === formData.id_compte)?.nom || 'Sélectionner un compte'}
+            </Text>
+            <Text style={[styles.selectArrow, isSelectOpen && styles.selectArrowOpen]}>
+              ▼
+            </Text>
+          </TouchableOpacity>
+          
+          {isSelectOpen && (
+            <View style={styles.selectDropdown}>
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {comptes.map((compte) => (
+                  <TouchableOpacity
+                    key={compte.id_compte || compte.id}
+                    style={[
+                      styles.selectOption,
+                      formData.id_compte === (compte.id_compte || compte.id) && styles.selectOptionSelected
+                    ]}
+                    onPress={() => {
+                      setFormData({...formData, id_compte: compte.id_compte || compte.id});
+                      setIsSelectOpen(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.id_compte === (compte.id_compte || compte.id) && styles.selectOptionTextSelected
+                    ]}>
+                      {compte.nom || 'Compte'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Catégorie</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsSourceSelectOpen(!isSourceSelectOpen)}
+          >
+            <Text style={styles.selectText}>
+              {categories.find(cat => cat.id === formData.id_categorie_depense)?.nom || 'Sélectionner une catégorie'}
+            </Text>
+            <Text style={[styles.selectArrow, isSourceSelectOpen && styles.selectArrowOpen]}>
+              ▼
+            </Text>
+          </TouchableOpacity>
+          
+          {isSourceSelectOpen && (
+            <View style={styles.selectDropdown}>
+              <View style={styles.searchContainer}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher une catégorie..."
+                  placeholderTextColor="#9ca3af"
+                  value={sourceSearchText}
+                  onChangeText={setSourceSearchText}
+                />
+              </View>
+              
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {(() => {
+                  const filteredCategories = categories.filter(categorie => 
+                    categorie.nom.toLowerCase().includes(sourceSearchText.toLowerCase())
+                  );
+                  return filteredCategories;
+                })().map((categorie) => (
+                  <TouchableOpacity
+                    key={categorie.id}
+                    style={[
+                      styles.selectOption,
+                      formData.id_categorie_depense === categorie.id && styles.selectOptionSelected
+                    ]}
+                    onPress={() => {
+                      setFormData({...formData, id_categorie_depense: categorie.id});
+                      setIsSourceSelectOpen(false);
+                      setSourceSearchText('');
+                    }}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.id_categorie_depense === categorie.id && styles.selectOptionTextSelected
+                    ]}>
+                      {categorie.nom}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Boutons d'action simplifiés */}
+      <View style={styles.formButtons}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleBackToOptions}
+        >
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+          onPress={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>Ajouter</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const formOptions = getFormOptions();
 
   return (
@@ -596,6 +888,8 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
                 renderAccountForm()
               ) : showForm && selectedType === 'revenu' ? (
                 renderRevenueForm()
+              ) : showForm && selectedType === 'depense' ? (
+                renderDepenseForm()
               ) : currentScreen === 'portefeuille' ? (
                 // Si on est dans portefeuille mais pas encore de formulaire, afficher les options
                 <>

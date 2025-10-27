@@ -74,9 +74,20 @@ const DepensesController = {
 
   update: (req, res) => {
     const { id_depense } = req.params;
-    Depenses.update(id_depense, req.body, (err) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({ message: 'Dépense mise à jour' });
+    const id_user = req.user?.id_user;
+    if (!id_user) return res.status(401).json({ message: "Non autorisé" });
+    
+    console.log('📝 UPDATE DEPENSE - ID:', id_depense);
+    console.log('📝 UPDATE DEPENSE - DATA:', req.body);
+    console.log('📝 UPDATE DEPENSE - USER:', id_user);
+    
+    Depenses.update(id_depense, req.body, (err, result) => {
+      if (err) {
+        console.error('❌ Erreur update model:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log('✅ Dépense mise à jour avec succès');
+      res.json({ message: 'Dépense mise à jour', data: req.body });
     });
   },
 

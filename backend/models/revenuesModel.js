@@ -84,10 +84,46 @@ const Revenues = {
   // Mettre à jour un revenu
   update: (id_revenu, data, callback) => {
     const { montant, date_revenu, source, id_categorie_revenu, id_compte } = data;
-    const sql = `UPDATE revenus 
-                 SET montant=?, date_revenu=?, source=?, id_categorie_revenu=?, id_compte=? 
-                 WHERE id_revenu=?`;
-    db.query(sql, [montant, date_revenu, source, id_categorie_revenu, id_compte, id_revenu], callback);
+    
+    // 1️⃣ Récupérer l'ancien revenu pour connaître le montant et le compte précédents
+    db.query('SELECT montant AS old_montant, id_compte AS old_id_compte FROM revenus WHERE id_revenu = ?', [id_revenu], (err, rows) => {
+      if (err) return callback(err);
+      if (!rows || rows.length === 0) return callback(new Error('Revenu introuvable'));
+      
+      const old_montant = rows[0].old_montant;
+      const old_id_compte = rows[0].old_id_compte;
+      const montantDiff = montant - old_montant;
+      const compteChanged = old_id_compte !== id_compte;
+      
+      // 2️⃣ Mettre à jour le revenu
+      const sqlUpdate = `UPDATE revenus 
+                         SET montant=?, date_revenu=?, source=?, id_categorie_revenu=?, id_compte=? 
+                         WHERE id_revenu=?`;
+      db.query(sqlUpdate, [montant, date_revenu, source, id_categorie_revenu, id_compte, id_revenu], (errUpdate) => {
+        if (errUpdate) return callback(errUpdate);
+        
+        // 3️⃣ Gérer la mise à jour des soldes des comptes
+        if (compteChanged) {
+          // Décrementer l'ancien compte puis incrémenter le nouveau
+          db.query('UPDATE Comptes SET solde = solde - ? WHERE id_compte = ?', [old_montant, old_id_compte], (err1) => {
+            if (err1) return callback(err1);
+            db.query('UPDATE Comptes SET solde = solde + ? WHERE id_compte = ?', [montant, id_compte], (err2) => {
+              if (err2) return callback(err2);
+              callback(null, { message: 'Revenu et soldes mis à jour' });
+            });
+          });
+        } else if (montantDiff !== 0) {
+          // Ajuster seulement la différence si le compte est le même
+          db.query('UPDATE Comptes SET solde = solde + ? WHERE id_compte = ?', [montantDiff, id_compte], (err3) => {
+            if (err3) return callback(err3);
+            callback(null, { message: 'Revenu et solde mis à jour' });
+          });
+        } else {
+          // Rien n'a changé
+          callback(null, { message: 'Revenu mis à jour sans changement de solde' });
+        }
+      });
+    });
   },
 
   // Supprimer un revenu

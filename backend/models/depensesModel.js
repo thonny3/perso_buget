@@ -148,11 +148,47 @@ add: (data, callback) => {
 
   update: (id_depense, data, callback) => {
     const { montant, date_depense, description, id_categorie_depense, id_compte } = data;
-    db.query(
-      'UPDATE Depenses SET montant=?, date_depense=?, description=?, id_categorie_depense=?, id_compte=? WHERE id_depense=?',
-      [montant, date_depense, description, id_categorie_depense, id_compte, id_depense],
-      callback
-    );
+    
+    // 1️⃣ Récupérer l'ancienne dépense pour connaître le montant et le compte précédents
+    db.query('SELECT montant AS old_montant, id_compte AS old_id_compte FROM Depenses WHERE id_depense = ?', [id_depense], (err, rows) => {
+      if (err) return callback(err);
+      if (!rows || rows.length === 0) return callback(new Error('Dépense introuvable'));
+      
+      const old_montant = rows[0].old_montant;
+      const old_id_compte = rows[0].old_id_compte;
+      const montantDiff = montant - old_montant;
+      const compteChanged = old_id_compte !== id_compte;
+      
+      // 2️⃣ Mettre à jour la dépense
+      db.query(
+        'UPDATE Depenses SET montant=?, date_depense=?, description=?, id_categorie_depense=?, id_compte=? WHERE id_depense=?',
+        [montant, date_depense, description, id_categorie_depense, id_compte, id_depense],
+        (errUpdate) => {
+          if (errUpdate) return callback(errUpdate);
+          
+          // 3️⃣ Gérer la mise à jour des soldes des comptes
+          if (compteChanged) {
+            // Rembourser l'ancien compte et débit du nouveau
+            db.query('UPDATE Comptes SET solde = solde + ? WHERE id_compte = ?', [old_montant, old_id_compte], (err1) => {
+              if (err1) return callback(err1);
+              db.query('UPDATE Comptes SET solde = solde - ? WHERE id_compte = ?', [montant, id_compte], (err2) => {
+                if (err2) return callback(err2);
+                callback(null, { message: 'Dépense et soldes mis à jour' });
+              });
+            });
+          } else if (montantDiff !== 0) {
+            // Ajuster seulement la différence si le compte est le même
+            db.query('UPDATE Comptes SET solde = solde - ? WHERE id_compte = ?', [montantDiff, id_compte], (err3) => {
+              if (err3) return callback(err3);
+              callback(null, { message: 'Dépense et solde mis à jour' });
+            });
+          } else {
+            // Rien n'a changé
+            callback(null, { message: 'Dépense mise à jour sans changement de solde' });
+          }
+        }
+      );
+    });
   },
 
   delete: (id_depense, callback) => {

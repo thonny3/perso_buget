@@ -16,6 +16,7 @@ import ConnectionDebugger from './ConnectionDebugger';
 import LogViewer from './LogViewer';
 import BottomNavigation from './BottomNavigation';
 import AddFormScreen from './AddFormScreen';
+import EditFormScreen from './EditFormScreen';
 import NotificationScreen from './NotificationScreen';
 import ProfileScreen from './ProfileScreen';
 import { dashboardService, authService } from '../services/apiService';
@@ -28,8 +29,11 @@ const Dashboard = ({ onLogout }) => {
   const [debugVisible, setDebugVisible] = useState(false);
   const [logsVisible, setLogsVisible] = useState(false);
   const [addFormVisible, setAddFormVisible] = useState(false);
+  const [editFormVisible, setEditFormVisible] = useState(false);
+  const [editFormData, setEditFormData] = useState(null);
   const refreshPortefeuilleRef = useRef(null);
   const refreshRevenusRef = useRef(null);
+  const refreshDepensesRef = useRef(null);
 
   const handleMenuPress = () => {
     setSidebarVisible(true);
@@ -85,7 +89,31 @@ const Dashboard = ({ onLogout }) => {
     } else if (currentScreen === 'revenus' && refreshRevenusRef.current) {
       console.log('Rechargement des revenus...');
       refreshRevenusRef.current();
+    } else if (currentScreen === 'depenses' && refreshDepensesRef.current) {
+      console.log('Rechargement des dépenses...');
+      refreshDepensesRef.current();
     }
+  };
+
+  const handleEditFormOpen = (data) => {
+    console.log('Opening edit form with data:', data);
+    setEditFormData(data);
+    setEditFormVisible(true);
+  };
+
+  const handleEditFormClose = () => {
+    setEditFormVisible(false);
+    setEditFormData(null);
+  };
+
+  const handleEditFormSuccess = (data) => {
+    console.log('Edit form success:', data);
+    // Recharger les données si nécessaire
+    if (currentScreen === 'revenus' && refreshRevenusRef.current) {
+      console.log('Rechargement des revenus...');
+      refreshRevenusRef.current();
+    }
+    handleEditFormClose();
   };
 
   const handleLogout = async () => {
@@ -187,11 +215,22 @@ const Dashboard = ({ onLogout }) => {
       case 'investissements':
         return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par InvestissementsScreen
       case 'depenses':
-        return <DepensesScreen onBack={() => setCurrentScreen('dashboard')} />;
+        return <DepensesScreen 
+          onBack={() => setCurrentScreen('dashboard')} 
+          onRefreshCallback={(callback) => refreshDepensesRef.current = callback}
+        />;
       case 'revenus':
         return <RevenusScreen 
           onBack={() => setCurrentScreen('dashboard')} 
           onRefreshCallback={(callback) => refreshRevenusRef.current = callback}
+          navigation={{
+            navigate: (screen, params) => {
+              if (screen === 'EditFormScreen') {
+                handleEditFormOpen(params.revenuData);
+              }
+            },
+            goBack: handleEditFormClose
+          }}
         />;
       case 'transactions':
         return <TransactionsScreen onBack={() => setCurrentScreen('dashboard')} />;
@@ -287,6 +326,21 @@ const Dashboard = ({ onLogout }) => {
         currentScreen={currentScreen}
         onSuccess={handleAddFormSuccess}
       />
+
+      {/* Edit Form Screen */}
+      {editFormVisible && editFormData && (
+        <EditFormScreen
+          navigation={{
+            goBack: handleEditFormClose
+          }}
+          route={{
+            params: {
+              revenuData: editFormData,
+              onSuccess: handleEditFormSuccess
+            }
+          }}
+        />
+      )}
 
       {/* Bottom Navigation */}
       <BottomNavigation
