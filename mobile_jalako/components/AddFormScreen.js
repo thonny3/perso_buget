@@ -11,21 +11,50 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService } from '../services/apiService';
+import { accountService, revenuesService } from '../services/apiService';
 
 const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   const [selectedType, setSelectedType] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({});
   const [isSelectOpen, setIsSelectOpen] = useState(false);
+  const [isSourceSelectOpen, setIsSourceSelectOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [sourceSearchText, setSourceSearchText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [comptes, setComptes] = useState([]);
+  const [categories, setCategories] = useState([]);
+  
+  // Catégories par défaut en cas de problème de chargement
+  const defaultCategories = [
+    { id: 1, nom: 'Salaire' },
+    { id: 2, nom: 'Prime' },
+    { id: 3, nom: 'Freelance / Mission' },
+    { id: 4, nom: 'Investissements' },
+    { id: 5, nom: 'Dividendes' },
+    { id: 6, nom: 'Ventes / Revente' },
+    { id: 7, nom: 'Cadeaux / Héritage' },
+    { id: 8, nom: 'Autres revenus' }
+  ];
 
-  // Si on est dans portefeuille, afficher directement le formulaire de compte
+  const sources = [
+    { id: 1, nom: 'Salaire', couleur: '#22c55e', icon: 'briefcase' },
+    { id: 2, nom: 'Freelance', couleur: '#3b82f6', icon: 'laptop' },
+    { id: 3, nom: 'Investissements', couleur: '#a855f7', icon: 'trending-up' },
+    { id: 4, nom: 'Ventes', couleur: '#f97316', icon: 'shopping-bag' },
+    { id: 5, nom: 'Autres', couleur: '#6b7280', icon: 'more-horizontal' },
+  ];
+
+  // Si on est dans portefeuille ou revenus, afficher directement le formulaire approprié
   React.useEffect(() => {
     if (visible && currentScreen === 'portefeuille') {
       setSelectedType('compte');
       setShowForm(true);
+    } else if (visible && currentScreen === 'revenus') {
+      setSelectedType('revenu');
+      setShowForm(true);
+      loadComptes(); // Charger les comptes pour le formulaire de revenus
+      loadCategories(); // Charger les catégories pour le formulaire de revenus
     } else if (visible) {
       setSelectedType(null);
       setShowForm(false);
@@ -37,62 +66,165 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     setShowForm(true);
   };
 
-  const handleFormSubmit = async () => {
-    // Validation basique comme dans l'application web
-    if (!formData.nom || !formData.nom.trim()) {
-      Alert.alert('Erreur', 'Le nom du compte est requis');
-      return;
-    }
-    
-    if (!formData.solde || parseFloat(formData.solde) < 0) {
-      Alert.alert('Erreur', 'Le solde doit être positif ou nul');
-      return;
-    }
-
-    if (!formData.type) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un type de compte');
-      return;
-    }
-
-    setIsLoading(true);
-
+  // Charger les comptes pour le formulaire de revenus
+  const loadComptes = async () => {
     try {
-      // Structure de données identique à l'application web
-      const accountData = {
-        nom: formData.nom.trim(),
-        type: formData.type,
-        solde: parseFloat(formData.solde) || 0,
-      };
-
-      console.log('Envoi des données du compte au backend:', accountData);
-
-      // Appel API pour créer le compte
-      const result = await accountService.createAccount(accountData);
-
+      const result = await accountService.getMyAccounts();
       if (result.success) {
-        console.log('Compte créé avec succès:', result.data);
-        Alert.alert('Succès', 'Compte créé avec succès!');
-        
-        // Réinitialiser le formulaire
-        setFormData({});
-        setShowForm(false);
-        setSelectedType(null);
-        setIsSelectOpen(false);
-        setSearchText('');
-        onClose();
-        
-        // Appeler le callback de succès avec les données du compte créé
-        if (onSuccess) onSuccess(result.data);
-      } else {
-        console.error('Erreur lors de la création du compte:', result.error);
-        Alert.alert('Erreur', result.error || 'Erreur lors de la création du compte');
+        setComptes(result.data || []);
       }
-    } catch (error) {
-      console.error('Erreur lors de la création du compte:', error);
-      Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.error('Erreur loadComptes:', err);
     }
+  };
+
+  // Charger les catégories pour le formulaire de revenus
+  const loadCategories = async () => {
+    try {
+      console.log('🔄 Chargement des catégories de revenus...');
+      const result = await revenuesService.getRevenueCategories();
+      console.log('📊 Résultat du chargement des catégories:', result);
+      if (result.success) {
+        setCategories(result.data || []);
+        console.log('✅ Catégories chargées:', result.data);
+      } else {
+        console.error('❌ Erreur lors du chargement des catégories:', result.error);
+        
+        // Utiliser les catégories par défaut en cas d'échec
+        setCategories(defaultCategories);
+        console.log('🔄 Utilisation des catégories par défaut');
+        
+        // Si c'est un problème d'authentification, afficher un message spécifique
+        if (result.requiresAuth) {
+          Alert.alert(
+            'Session expirée', 
+            'Votre session a expiré. Veuillez vous reconnecter pour continuer.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    } catch (err) {
+      console.error('❌ Erreur loadCategories:', err);
+      // Utiliser les catégories par défaut en cas d'erreur
+      setCategories(defaultCategories);
+      console.log('🔄 Utilisation des catégories par défaut (erreur)');
+      Alert.alert('Erreur', 'Impossible de charger les catégories. Vérifiez votre connexion.');
+    }
+  };
+
+  const handleFormSubmit = async () => {
+    if (selectedType === 'compte') {
+      // Validation pour le compte
+      if (!formData.nom || !formData.nom.trim()) {
+        Alert.alert('Erreur', 'Le nom du compte est requis');
+        return;
+      }
+      
+      if (!formData.solde || parseFloat(formData.solde) < 0) {
+        Alert.alert('Erreur', 'Le solde doit être positif ou nul');
+        return;
+      }
+
+      if (!formData.type) {
+        Alert.alert('Erreur', 'Veuillez sélectionner un type de compte');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const accountData = {
+          nom: formData.nom.trim(),
+          type: formData.type,
+          solde: parseFloat(formData.solde) || 0,
+        };
+
+        console.log('Envoi des données du compte au backend:', accountData);
+
+        const result = await accountService.createAccount(accountData);
+
+        if (result.success) {
+          console.log('Compte créé avec succès:', result.data);
+          Alert.alert('Succès', 'Compte créé avec succès!');
+          
+          resetForm();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          console.error('Erreur lors de la création du compte:', result.error);
+          Alert.alert('Erreur', result.error || 'Erreur lors de la création du compte');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la création du compte:', error);
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (selectedType === 'revenu') {
+      // Validation pour le revenu
+      if (!formData.description || !formData.description.trim()) {
+        Alert.alert('Erreur', 'La description est requise');
+        return;
+      }
+      
+      if (!formData.montant || parseFloat(formData.montant) <= 0) {
+        Alert.alert('Erreur', 'Le montant doit être positif');
+        return;
+      }
+
+      if (!formData.id_categorie_revenu) {
+        Alert.alert('Erreur', 'Veuillez sélectionner une catégorie');
+        return;
+      }
+
+      if (!formData.id_compte) {
+        Alert.alert('Erreur', 'Veuillez sélectionner un compte');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const revenuData = {
+          source: formData.description.trim(), // Mapper description vers source pour la base de données
+          montant: parseFloat(formData.montant),
+          id_categorie_revenu: formData.id_categorie_revenu,
+          id_compte: formData.id_compte,
+          date_revenu: formData.date_revenu || new Date().toISOString().split('T')[0]
+        };
+
+        console.log('📤 Envoi des données du revenu au backend:', revenuData);
+        console.log('📝 Description mappée vers source:', formData.description, '->', revenuData.source);
+
+        const result = await revenuesService.createRevenue(revenuData);
+
+        if (result.success) {
+          console.log('Revenu créé avec succès:', result.data);
+          Alert.alert('Succès', 'Revenu ajouté avec succès!');
+          
+          resetForm();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          console.error('Erreur lors de la création du revenu:', result.error);
+          Alert.alert('Erreur', result.error || 'Erreur lors de la création du revenu');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la création du revenu:', error);
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({});
+    setShowForm(false);
+    setSelectedType(null);
+    setIsSelectOpen(false);
+    setIsSourceSelectOpen(false);
+    setSearchText('');
+    setSourceSearchText('');
+    onClose();
   };
 
   const handleBackToOptions = () => {
@@ -100,7 +232,9 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     setSelectedType(null);
     setFormData({});
     setIsSelectOpen(false);
+    setIsSourceSelectOpen(false);
     setSearchText('');
+    setSourceSearchText('');
   };
 
   const getFormOptions = () => {
@@ -266,6 +400,176 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     </View>
   );
 
+  const renderRevenueForm = () => (
+    <View style={styles.formContainer}>
+      {/* Header simplifié */}
+      <View style={styles.formHeader}>
+        <Text style={styles.formTitle}>Ajouter un revenu</Text>
+      </View>
+      
+      {/* Formulaire simplifié */}
+      <View style={styles.formContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Description</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ex: Salaire mensuel, Projet freelance..."
+            placeholderTextColor="#9ca3af"
+            value={formData.description || ''}
+            onChangeText={(text) => setFormData({...formData, description: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant (Ar)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0,00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant || ''}
+            onChangeText={(text) => setFormData({...formData, montant: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Date</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#9ca3af"
+            value={formData.date_revenu || new Date().toISOString().split('T')[0]}
+            onChangeText={(text) => setFormData({...formData, date_revenu: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Compte</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsSelectOpen(!isSelectOpen)}
+          >
+            <Text style={styles.selectText}>
+              {comptes.find(c => (c.id_compte || c.id) === formData.id_compte)?.nom || 'Sélectionner un compte'}
+            </Text>
+            <Text style={[styles.selectArrow, isSelectOpen && styles.selectArrowOpen]}>
+              ▼
+            </Text>
+          </TouchableOpacity>
+          
+          {isSelectOpen && (
+            <View style={styles.selectDropdown}>
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {comptes.map((compte) => (
+                  <TouchableOpacity
+                    key={compte.id_compte || compte.id}
+                    style={[
+                      styles.selectOption,
+                      formData.id_compte === (compte.id_compte || compte.id) && styles.selectOptionSelected
+                    ]}
+                    onPress={() => {
+                      setFormData({...formData, id_compte: compte.id_compte || compte.id});
+                      setIsSelectOpen(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.id_compte === (compte.id_compte || compte.id) && styles.selectOptionTextSelected
+                    ]}>
+                      {compte.nom || 'Compte'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Catégorie</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsSourceSelectOpen(!isSourceSelectOpen)}
+          >
+            <Text style={styles.selectText}>
+              {categories.find(cat => cat.id === formData.id_categorie_revenu)?.nom || 'Sélectionner une catégorie'}
+            </Text>
+            <Text style={[styles.selectArrow, isSourceSelectOpen && styles.selectArrowOpen]}>
+              ▼
+            </Text>
+          </TouchableOpacity>
+          
+          {isSourceSelectOpen && (
+            <View style={styles.selectDropdown}>
+              <View style={styles.searchContainer}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher une catégorie..."
+                  placeholderTextColor="#9ca3af"
+                  value={sourceSearchText}
+                  onChangeText={setSourceSearchText}
+                />
+              </View>
+              
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {(() => {
+                  const filteredCategories = categories.filter(categorie => 
+                    categorie.nom.toLowerCase().includes(sourceSearchText.toLowerCase())
+                  );
+                  console.log('📋 Catégories filtrées:', filteredCategories.length, 'sur', categories.length);
+                  return filteredCategories;
+                })().map((categorie) => (
+                  <TouchableOpacity
+                    key={categorie.id}
+                    style={[
+                      styles.selectOption,
+                      formData.id_categorie_revenu === categorie.id && styles.selectOptionSelected
+                    ]}
+                    onPress={() => {
+                      setFormData({...formData, id_categorie_revenu: categorie.id});
+                      setIsSourceSelectOpen(false);
+                      setSourceSearchText('');
+                    }}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.id_categorie_revenu === categorie.id && styles.selectOptionTextSelected
+                    ]}>
+                      {categorie.nom}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Boutons d'action simplifiés */}
+      <View style={styles.formButtons}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleBackToOptions}
+        >
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+          onPress={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>Ajouter</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const formOptions = getFormOptions();
 
   return (
@@ -290,6 +594,8 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
               {showForm && selectedType === 'compte' ? (
                 renderAccountForm()
+              ) : showForm && selectedType === 'revenu' ? (
+                renderRevenueForm()
               ) : currentScreen === 'portefeuille' ? (
                 // Si on est dans portefeuille mais pas encore de formulaire, afficher les options
                 <>

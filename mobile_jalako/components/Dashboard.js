@@ -29,6 +29,7 @@ const Dashboard = ({ onLogout }) => {
   const [logsVisible, setLogsVisible] = useState(false);
   const [addFormVisible, setAddFormVisible] = useState(false);
   const refreshPortefeuilleRef = useRef(null);
+  const refreshRevenusRef = useRef(null);
 
   const handleMenuPress = () => {
     setSidebarVisible(true);
@@ -75,13 +76,15 @@ const Dashboard = ({ onLogout }) => {
     console.log('Search pressed');
   };
 
-  const handleAddFormSuccess = (accountData) => {
-    console.log('Add form success:', accountData);
+  const handleAddFormSuccess = (data) => {
+    console.log('Add form success:', data);
     // Recharger les données si nécessaire
-    // Par exemple, recharger les comptes si on était dans portefeuille
     if (currentScreen === 'portefeuille' && refreshPortefeuilleRef.current) {
       console.log('Rechargement des comptes...');
       refreshPortefeuilleRef.current();
+    } else if (currentScreen === 'revenus' && refreshRevenusRef.current) {
+      console.log('Rechargement des revenus...');
+      refreshRevenusRef.current();
     }
   };
 
@@ -186,7 +189,10 @@ const Dashboard = ({ onLogout }) => {
       case 'depenses':
         return <DepensesScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'revenus':
-        return <RevenusScreen onBack={() => setCurrentScreen('dashboard')} />;
+        return <RevenusScreen 
+          onBack={() => setCurrentScreen('dashboard')} 
+          onRefreshCallback={(callback) => refreshRevenusRef.current = callback}
+        />;
       case 'transactions':
         return <TransactionsScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'transferts':

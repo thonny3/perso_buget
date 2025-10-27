@@ -572,10 +572,10 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                   {/* Menu d'actions */}
                   <View style={styles.actionsMenu}>
                     <TouchableOpacity 
-                      style={styles.actionButton} 
+                      style={[styles.actionButton, styles.shareButton]} 
                       onPress={() => openShareModal(compte)}
                     >
-                      <Feather name="share-2" size={16} color="#3b82f6" />
+                      <Feather name="share-2" size={16} color="#fff" />
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={styles.actionButton} 
@@ -604,22 +604,18 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                   <View style={styles.sharedAccessContent}>
                     <View style={styles.sharedAccessInfo}>
                       <Feather name="users" size={16} color="#6b7280" />
-                      <Text style={styles.sharedAccessText}>Accès partagé</Text>
+                      <Text style={styles.sharedAccessText}>Partager ce compte</Text>
                     </View>
-                    <View style={styles.sharedUsers}>
-                      <View style={styles.userAvatar}>
-                        <Text style={styles.userInitial}>M</Text>
-                      </View>
-                      <View style={styles.userAvatar}>
-                        <Text style={styles.userInitial}>P</Text>
-                      </View>
-                      <TouchableOpacity style={styles.addUserButton}>
-                        <Feather name="plus" size={16} color="#6b7280" />
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity 
+                      style={styles.shareAccountButton}
+                      onPress={() => openShareModal(compte)}
+                    >
+                      <Feather name="share-2" size={16} color="#3b82f6" />
+                      <Text style={styles.shareAccountButtonText}>Partager</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: '60%' }]} />
+                    <View style={[styles.progressFill, { width: '0%' }]} />
                   </View>
                 </View>
 
@@ -691,7 +687,10 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionTitle}>Comptes partagés</Text>
+            <Text style={styles.sectionTitle}>
+              <Feather name="users" size={24} color="#8b5cf6" />
+              {' '}Comptes partagés
+            </Text>
             <Text style={styles.sectionSubtitle}>Comptes partagés avec vous par d'autres utilisateurs</Text>
           </View>
           <View style={styles.realtimeIndicator}>
@@ -721,6 +720,12 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
             </View>
             <Text style={styles.emptyTitle}>Aucun compte partagé</Text>
             <Text style={styles.emptyText}>Les comptes partagés avec vous apparaîtront ici</Text>
+            <View style={styles.emptyActionContainer}>
+              <TouchableOpacity style={styles.emptyActionButton}>
+                <Feather name="info" size={16} color="#3b82f6" />
+                <Text style={styles.emptyActionText}>Comment partager un compte ?</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <View style={styles.accountsGrid}>
@@ -1066,7 +1071,7 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                   <View style={[styles.shareAccountIcon, { backgroundColor: sharingCompte?.couleur || '#059669' }]}>
                     <Feather name="wallet" size={20} color="#fff" />
                   </View>
-                  <View>
+                  <View style={styles.shareAccountDetails}>
                     <Text style={styles.shareAccountName}>{sharingCompte?.nom}</Text>
                     <Text style={styles.shareAccountType}>
                       {sharingCompte?.type === 'principal' ? 'Compte principal' : 
@@ -1075,28 +1080,64 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                        sharingCompte?.type === 'courant' ? 'Compte courant' :
                        sharingCompte?.type === 'trading' ? 'Trading' : 'Autre'}
                     </Text>
+                    <Text style={styles.shareAccountBalance}>{sharingCompte?.solde}</Text>
                   </View>
+                </View>
+                <View style={styles.shareInstructions}>
+                  <Feather name="info" size={16} color="#3b82f6" />
+                  <Text style={styles.shareInstructionsText}>
+                    Partagez ce compte avec d'autres utilisateurs en saisissant leur email
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email de l'utilisateur</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="exemple@email.com"
-                  value={shareEmail}
-                  onChangeText={setShareEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
+                <Text style={styles.inputLabel}>
+                  <Feather name="mail" size={16} color="#3b82f6" />
+                  {' '}Email de l'utilisateur
+                </Text>
+                <View style={styles.emailInputContainer}>
+                  <TextInput
+                    style={styles.emailInput}
+                    placeholder="exemple@email.com"
+                    value={shareEmail}
+                    onChangeText={setShareEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholderTextColor="#9ca3af"
+                  />
+                  {shareEmail.length > 0 && (
+                    <TouchableOpacity 
+                      style={styles.clearEmailButton}
+                      onPress={() => setShareEmail('')}
+                    >
+                      <Feather name="x" size={16} color="#6b7280" />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Rôle</Text>
+                <Text style={styles.inputLabel}>
+                  <Feather name="shield" size={16} color="#3b82f6" />
+                  {' '}Niveau d'accès
+                </Text>
                 <View style={styles.roleSelector}>
                   {[
-                    { value: 'lecture', label: 'Lecture seule', description: 'Peut voir le compte' },
-                    { value: 'ecriture', label: 'Lecture/Écriture', description: 'Peut modifier le compte' }
+                    { 
+                      value: 'lecture', 
+                      label: 'Lecture seule', 
+                      description: 'Peut voir le compte et les transactions',
+                      icon: 'eye',
+                      color: '#6b7280'
+                    },
+                    { 
+                      value: 'ecriture', 
+                      label: 'Lecture/Écriture', 
+                      description: 'Peut modifier le compte et ajouter des transactions',
+                      icon: 'edit-3',
+                      color: '#3b82f6'
+                    }
                   ].map((role) => (
                     <TouchableOpacity
                       key={role.value}
@@ -1107,12 +1148,15 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                       onPress={() => setShareRole(role.value)}
                     >
                       <View style={styles.roleOptionContent}>
-                        <Text style={[
-                          styles.roleOptionText,
-                          shareRole === role.value && styles.roleOptionTextSelected
-                        ]}>
-                          {role.label}
-                        </Text>
+                        <View style={styles.roleOptionHeader}>
+                          <Feather name={role.icon} size={18} color={shareRole === role.value ? '#059669' : role.color} />
+                          <Text style={[
+                            styles.roleOptionText,
+                            shareRole === role.value && styles.roleOptionTextSelected
+                          ]}>
+                            {role.label}
+                          </Text>
+                        </View>
                         <Text style={[
                           styles.roleOptionDescription,
                           shareRole === role.value && styles.roleOptionDescriptionSelected
@@ -1477,6 +1521,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  shareButton: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
   soldeSection: {
     marginBottom: 20,
     position: 'relative',
@@ -1563,6 +1616,22 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#3b82f6',
     borderRadius: 2,
+  },
+  shareAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    gap: 6,
+  },
+  shareAccountButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
   activityIndicator: {
     position: 'absolute',
@@ -1677,6 +1746,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  emptyActionContainer: {
+    marginTop: 16,
+  },
+  emptyActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    gap: 8,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    color: '#1e40af',
+    fontWeight: '600',
   },
   // Styles pour le modal
   modalOverlay: {
@@ -1849,6 +1937,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  shareAccountDetails: {
+    flex: 1,
+  },
   shareAccountName: {
     fontSize: 16,
     fontWeight: '600',
@@ -1858,6 +1949,49 @@ const styles = StyleSheet.create({
   shareAccountType: {
     fontSize: 12,
     color: '#6b7280',
+    marginBottom: 4,
+  },
+  shareAccountBalance: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  shareInstructions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    gap: 8,
+  },
+  shareInstructionsText: {
+    fontSize: 12,
+    color: '#1e40af',
+    fontWeight: '500',
+    flex: 1,
+  },
+  emailInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+  },
+  emailInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#374151',
+  },
+  clearEmailButton: {
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
   },
   roleSelector: {
     gap: 8,
@@ -1879,11 +2013,16 @@ const styles = StyleSheet.create({
   roleOptionContent: {
     flex: 1,
   },
+  roleOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   roleOptionText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 2,
   },
   roleOptionTextSelected: {
     color: '#059669',

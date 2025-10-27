@@ -25,9 +25,9 @@ apiClient.interceptors.request.use(
     const token = await getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token ajouté à la requête');
+      console.log('🔑 Token ajouté à la requête:', token.substring(0, 20) + '...');
     } else {
-      console.log('⚠️ Aucun token trouvé');
+      console.log('⚠️ Aucun token trouvé - requête non authentifiée');
     }
     return config;
   },
@@ -694,15 +694,26 @@ export const revenuesService = {
     }
   },
 
-  // Obtenir un revenu par ID
-  getRevenueById: async (id) => {
+  // Obtenir les catégories de revenus
+  getRevenueCategories: async () => {
     try {
-      const response = await apiClient.get(`/revenus/${id}`);
+      const response = await apiClient.get('/categories/revenues');
       return { success: true, data: response.data };
     } catch (error) {
+      console.error('❌ Erreur getRevenueCategories:', error.response?.data || error.message);
+      
+      // Gestion spécifique des erreurs d'authentification
+      if (error.response?.status === 401) {
+        return {
+          success: false,
+          error: 'Session expirée. Veuillez vous reconnecter.',
+          requiresAuth: true
+        };
+      }
+      
       return {
         success: false,
-        error: error.response?.data?.message || 'Erreur lors du chargement du revenu',
+        error: error.response?.data?.message || 'Erreur lors du chargement des catégories de revenus',
       };
     }
   },
@@ -726,7 +737,7 @@ export const categoryService = {
   // Obtenir les catégories de revenus
   getCategoriesRevenus: async () => {
     try {
-      const response = await apiClient.get('/categories/revenus');
+      const response = await apiClient.get('/categories/revenues');
       return { success: true, data: response.data };
     } catch (error) {
       return {
