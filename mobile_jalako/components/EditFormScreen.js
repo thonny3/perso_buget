@@ -11,10 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService, revenuesService } from '../services/apiService';
+import { accountService, revenuesService, budgetService } from '../services/apiService';
 
 const EditFormScreen = ({ navigation, route }) => {
-  const { revenuData, onSuccess } = route.params || {};
+  const { revenuData, budgetData, onSuccess } = route.params || {};
   
   // Formater la date au format YYYY-MM-DD
   const formatDate = (dateStr) => {
@@ -26,13 +26,20 @@ const EditFormScreen = ({ navigation, route }) => {
     return dateStr;
   };
   
-  const [formData, setFormData] = useState({
-    description: revenuData?.source || '',
-    montant: revenuData?.montant?.toString() || '',
-    id_categorie_revenu: revenuData?.id_categorie_revenu || '',
-    id_compte: revenuData?.id_compte || '',
-    date_revenu: formatDate(revenuData?.date_revenu)
-  });
+  const [formData, setFormData] = useState(
+    budgetData
+      ? {
+          mois: budgetData?.mois || new Date().toISOString().slice(0, 7),
+          montant_max: budgetData?.montant_max?.toString() || '',
+        }
+      : {
+          description: revenuData?.source || '',
+          montant: revenuData?.montant?.toString() || '',
+          id_categorie_revenu: revenuData?.id_categorie_revenu || '',
+          id_compte: revenuData?.id_compte || '',
+          date_revenu: formatDate(revenuData?.date_revenu),
+        }
+  );
   
   const [isSelectOpen, setIsSelectOpen] = useState(false);
   const [isSourceSelectOpen, setIsSourceSelectOpen] = useState(false);
@@ -55,9 +62,28 @@ const EditFormScreen = ({ navigation, route }) => {
 
   // Charger les données nécessaires au montage du composant
   useEffect(() => {
-    loadComptes();
-    loadCategories();
-  }, []);
+    if (!budgetData) {
+      loadComptes();
+      loadCategories();
+    } else {
+      // Pour afficher le nom de la catégorie dans le formulaire Budget
+      loadDepenseCategories();
+    }
+  }, [budgetData]);
+
+  // Charger les catégories de dépenses (pour Budget)
+  const loadDepenseCategories = async () => {
+    try {
+      const result = await revenuesService.getRevenueCategories?.(); // fallback si service non importé
+    } catch (_e) {}
+    try {
+      const { categoryService } = await import('../services/apiService');
+      const resp = await categoryService.getCategoriesDepenses();
+      if (resp.success) {
+        setCategories(resp.data || []);
+      }
+    } catch (_err) {}
+  };
 
   // Charger les comptes
   const loadComptes = async () => {
@@ -111,6 +137,32 @@ const EditFormScreen = ({ navigation, route }) => {
   };
 
   const handleFormSubmit = async () => {
+    if (budgetData) {
+      // Edition d'un budget
+      const maxNum = parseFloat(formData.montant_max);
+      if (!Number.isFinite(maxNum) || maxNum < 0) {
+        Alert.alert('Erreur', 'Le montant maximum est invalide');
+        return;
+      }
+      try {
+        const id_budget = budgetData.id_budget || budgetData.id;
+        const result = await budgetService.updateBudget(id_budget, {
+          montant_max: maxNum,
+          // Conserver la valeur actuelle du restant côté serveur
+          montant_restant: budgetData.montant_restant,
+        });
+        if (result.success) {
+          Alert.alert('Succès', 'Budget modifié avec succès!');
+          navigation.goBack();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          Alert.alert('Erreur', result.error || 'Erreur lors de la modification du budget');
+        }
+      } catch (e) {
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      }
+      return;
+    }
     // Validation pour le revenu
     if (!formData.description || !formData.description.trim()) {
       Alert.alert('Erreur', 'La description est requise');
@@ -365,6 +417,67 @@ const EditFormScreen = ({ navigation, route }) => {
     </View>
   );
 
+  const renderBudgetEditForm = () => (
+    <View style={styles.formContainer}>
+      <View style={styles.formContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Mois (lecture seule)</Text>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: '#f3f4f6' }]}
+            editable={false}
+            value={formData.mois || ''}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Catégorie de dépense (lecture seule)</Text>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: '#f3f4f6' }]}
+            editable={false}
+            value={
+              categories.find((c) => c.id === (budgetData?.id_categorie_depense || budgetData?.id_categories_depenses))?.nom
+              || 'Catégorie'
+            }
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant maximum (Ar)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant_max || ''}
+            onChangeText={(text) => setFormData({ ...formData, montant_max: text })}
+          />
+        </View>
+
+        {/* Pas de champ "montant restant" en modification */}
+      </View>
+
+      <View style={styles.formButtons}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleBack}
+        >
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+          onPress={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>Modifier</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <Modal
       visible={true}
@@ -385,7 +498,7 @@ const EditFormScreen = ({ navigation, route }) => {
 
             {/* Content */}
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              {renderRevenueForm()}
+              {budgetData ? renderBudgetEditForm() : renderRevenueForm()}
             </ScrollView>
           </SafeAreaView>
         </View>

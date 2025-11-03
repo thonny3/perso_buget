@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService, revenuesService, depensesService, categoryService, investissementsService, dettesService } from '../services/apiService';
+import { accountService, revenuesService, depensesService, categoryService, investissementsService, dettesService, budgetService } from '../services/apiService';
 
 const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   const [selectedType, setSelectedType] = useState(null);
@@ -69,6 +69,16 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
       });
       loadComptes(); // Charger les comptes pour le formulaire de dépenses
       loadDepenseCategories(); // Charger les catégories pour le formulaire de dépenses
+    } else if (visible && currentScreen === 'budget') {
+      setSelectedType('budget');
+      setShowForm(true);
+      // Initialiser les données du formulaire budget
+      setFormData({
+        mois: new Date().toISOString().slice(0,7),
+        montant_max: '',
+        id_categorie_depense: ''
+      });
+      loadDepenseCategories();
     } else if (visible && currentScreen === 'investissements') {
       setSelectedType('investissement');
       setShowForm(true);
@@ -208,6 +218,35 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   };
 
   const handleFormSubmit = async () => {
+    if (selectedType === 'budget') {
+      if (!formData.mois || !formData.montant_max || !formData.id_categorie_depense) {
+        Alert.alert('Erreur', 'Veuillez renseigner le mois, le montant et la catégorie');
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const payload = {
+          mois: formData.mois,
+          id_categorie_depense: parseInt(formData.id_categorie_depense),
+          montant_max: parseFloat(formData.montant_max),
+          // Le backend initialise montant_restant
+        };
+        const result = await budgetService.createBudget(payload);
+        if (result.success) {
+          Alert.alert('Succès', 'Budget créé avec succès');
+          resetForm();
+          if (onSuccess) onSuccess(result.data);
+          return;
+        } else {
+          Alert.alert('Erreur', result.error || 'Création du budget impossible');
+        }
+      } catch (e) {
+        Alert.alert('Erreur', 'Erreur de connexion. Réessayez.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     if (selectedType === 'compte') {
       // Validation pour le compte
       if (!formData.nom || !formData.nom.trim()) {
@@ -991,6 +1030,104 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     </View>
   );
 
+  const renderBudgetForm = () => (
+    <View style={styles.formContainer}>
+      <View style={styles.formHeader}>
+        <Text style={styles.formTitle}>Créer un budget</Text>
+      </View>
+      <View style={styles.formContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Mois (YYYY-MM)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM"
+            placeholderTextColor="#9ca3af"
+            value={formData.mois || ''}
+            onChangeText={(text) => setFormData({ ...formData, mois: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant maximum (Ar)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant_max || ''}
+            onChangeText={(text) => setFormData({ ...formData, montant_max: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Catégorie de dépense</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsSourceSelectOpen(!isSourceSelectOpen)}
+          >
+            <Text style={styles.selectText}>
+              {categories.find(cat => cat.id === formData.id_categorie_depense)?.nom || 'Sélectionner une catégorie'}
+            </Text>
+            <Text style={[styles.selectArrow, isSourceSelectOpen && styles.selectArrowOpen]}>▼</Text>
+          </TouchableOpacity>
+          {isSourceSelectOpen && (
+            <View style={styles.selectDropdown}>
+              <View style={styles.searchContainer}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher une catégorie..."
+                  placeholderTextColor="#9ca3af"
+                  value={sourceSearchText}
+                  onChangeText={setSourceSearchText}
+                />
+              </View>
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {categories
+                  .filter(c => c.nom.toLowerCase().includes(sourceSearchText.toLowerCase()))
+                  .map((categorie) => (
+                    <TouchableOpacity
+                      key={categorie.id}
+                      style={[
+                        styles.selectOption,
+                        formData.id_categorie_depense === categorie.id && styles.selectOptionSelected
+                      ]}
+                      onPress={() => {
+                        setFormData({ ...formData, id_categorie_depense: categorie.id });
+                        setIsSourceSelectOpen(false);
+                        setSourceSearchText('');
+                      }}
+                    >
+                      <Text style={[
+                        styles.selectOptionText,
+                        formData.id_categorie_depense === categorie.id && styles.selectOptionTextSelected
+                      ]}>
+                        {categorie.nom}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </View>
+      <View style={styles.formButtons}>
+        <TouchableOpacity style={styles.cancelButton} onPress={handleBackToOptions}>
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+          onPress={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>Créer</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const renderInvestissementForm = () => (
     <View style={styles.formContainer}>
       {/* Header simplifié */}
@@ -1324,6 +1461,8 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
                 renderRevenueForm()
               ) : showForm && selectedType === 'depense' ? (
                 renderDepenseForm()
+              ) : showForm && selectedType === 'budget' ? (
+                renderBudgetForm()
               ) : showForm && selectedType === 'investissement' ? (
                 renderInvestissementForm()
               ) : showForm && selectedType === 'dette' ? (

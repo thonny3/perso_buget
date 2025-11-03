@@ -5,7 +5,7 @@ import { budgetService, categoryService } from '../../services/apiService';
 
 const { width } = Dimensions.get('window');
 
-const BudgetScreen = ({ onBack }) => {
+const BudgetScreen = ({ onBack, onRefreshCallback, navigation }) => {
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +16,8 @@ const BudgetScreen = ({ onBack }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [monthModalVisible, setMonthModalVisible] = useState(false);
   const [editingBudget, setEditingBudget] = useState(null);
+  const [editingBudgetId, setEditingBudgetId] = useState(null);
+  const [editValues, setEditValues] = useState({ montant_max: '', montant_restant: '' });
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState({
     mois: '',
@@ -163,9 +165,7 @@ const BudgetScreen = ({ onBack }) => {
       const budgetData = {
         ...formData,
         montant_max: parseFloat(formData.montant_max),
-        montant_restant: parseFloat(formData.montant_max),
-        montant_depense: 0,
-        pourcentage_utilise: 0
+        // Le backend initialise montant_restant = montant_max
       };
 
       const result = await budgetService.createBudget(budgetData);
@@ -227,12 +227,62 @@ const BudgetScreen = ({ onBack }) => {
     return '#16a34a';
   };
 
+  const startEdit = (budget) => {
+    setEditingBudgetId(budget.id_budget);
+    setEditValues({
+      montant_max: String(budget.montant_max ?? ''),
+      montant_restant: String(budget.montant_restant ?? '')
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingBudgetId(null);
+    setEditValues({ montant_max: '', montant_restant: '' });
+  };
+
+  const saveEdit = async (id_budget) => {
+    const maxNum = parseFloat(editValues.montant_max);
+    const restNum = parseFloat(editValues.montant_restant);
+    if (!Number.isFinite(maxNum) || maxNum < 0) {
+      Alert.alert('Erreur', 'montant_max invalide');
+      return;
+    }
+    if (!Number.isFinite(restNum) || restNum < 0) {
+      Alert.alert('Erreur', 'montant_restant invalide');
+      return;
+    }
+    try {
+      const resp = await budgetService.updateBudget(id_budget, {
+        montant_max: maxNum,
+        montant_restant: restNum,
+      });
+      if (resp.success) {
+        cancelEdit();
+        loadBudgets();
+      } else {
+        Alert.alert('Erreur', resp.error || 'Mise à jour impossible');
+      }
+    } catch (e) {
+      Alert.alert('Erreur', 'Mise à jour impossible');
+    }
+  };
+
   // Charger les données au montage
   useEffect(() => {
     loadBudgets();
     loadCategories();
     setSelectedMonth(getCurrentMonth());
   }, []);
+
+  // Exposer la fonction de refresh au parent (Dashboard)
+  useEffect(() => {
+    if (typeof onRefreshCallback === 'function') {
+      onRefreshCallback(() => {
+        setRefreshing(true);
+        loadBudgets();
+      });
+    }
+  }, [onRefreshCallback]);
 
   // Affichage de chargement
   if (loading) {
@@ -397,7 +447,13 @@ const BudgetScreen = ({ onBack }) => {
                     
                     {/* Menu d'actions */}
                     <View style={styles.actionsMenu}>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity 
+                        style={styles.actionButton} 
+                        onPress={() => navigation?.navigate && navigation.navigate('EditFormScreen', {
+                          budgetData: budget,
+                          onSuccess: () => loadBudgets(),
+                        })}
+                      >
                         <Feather name="edit-2" size={16} color="#3b82f6" />
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.actionButton} onPress={() => handleDelete(budget.id_budget)}>
@@ -429,6 +485,8 @@ const BudgetScreen = ({ onBack }) => {
                       </Text>
                     </View>
             </View>
+
+                  {/* L'édition se fait via un écran dédié (comme AddFormScreen) */}
             
                   {/* Barre de progression */}
                   <View style={styles.progressSection}>
@@ -1063,6 +1121,37 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
+  },
+  editContainer: {
+    marginTop: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  cancelButtonInline: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+  },
+  saveButtonInline: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#10b981',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   categorySelector: {
     flexDirection: 'row',
