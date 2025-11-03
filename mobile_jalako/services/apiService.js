@@ -1197,4 +1197,135 @@ export const investissementsService = {
   },
 };
 
+// Services des abonnements
+export const abonnementsService = {
+  listMy: async () => {
+    try {
+      const verify = await authService.getCurrentUser();
+      const id_user = verify?.data?.id_user || verify?.id_user || verify?.data?.user?.id_user;
+      if (!id_user) throw new Error('Utilisateur non authentifié');
+      const response = await apiClient.get(`/abonnements/${id_user}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message || 'Erreur lors du chargement des abonnements' };
+    }
+  },
+  create: async (payload) => {
+    try {
+      const response = await apiClient.post('/abonnements', payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || error.response?.data?.message || 'Erreur lors de la création de l\'abonnement' };
+    }
+  },
+  update: async (id_abonnement, payload) => {
+    try {
+      const response = await apiClient.put(`/abonnements/${id_abonnement}`, payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message || 'Erreur lors de la mise à jour de l\'abonnement' };
+    }
+  },
+  remove: async (id_abonnement) => {
+    try {
+      const response = await apiClient.delete(`/abonnements/${id_abonnement}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message || 'Erreur lors de la suppression de l\'abonnement' };
+    }
+  },
+  renew: async ({ id_abonnement, id_compte }) => {
+    try {
+      const response = await apiClient.post('/abonnements/renew', { id_abonnement, id_compte });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message || 'Erreur lors du renouvellement' };
+    }
+  },
+};
+
+// Services des objectifs
+export const objectifsService = {
+  // Lister les objectifs
+  getObjectifs: async () => {
+    try {
+      const response = await apiClient.get('/objectifs');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des objectifs',
+      };
+    }
+  },
+
+  // Créer un objectif
+  createObjectif: async (payload) => {
+    try {
+      const response = await apiClient.post('/objectifs', payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la création de l\'objectif',
+      };
+    }
+  },
+
+  // Mettre à jour un objectif
+  updateObjectif: async (id_objectif, payload) => {
+    try {
+      const response = await apiClient.put(`/objectifs/${id_objectif}`, payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la mise à jour de l\'objectif',
+      };
+    }
+  },
+
+  // Supprimer un objectif
+  deleteObjectif: async (id_objectif) => {
+    try {
+      await apiClient.delete(`/objectifs/${id_objectif}`);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la suppression de l\'objectif',
+      };
+    }
+  },
+};
+
+// Services des contributions (Objectifs)
+export const contributionsService = {
+  // Lister les contributions d'un objectif
+  listByObjectif: async (id_objectif) => {
+    try {
+      const response = await apiClient.get(`/contributions/${id_objectif}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des contributions',
+      };
+    }
+  },
+
+  // Créer une contribution
+  create: async (payload) => {
+    try {
+      const response = await apiClient.post('/contributions', payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de l\'ajout de la contribution',
+      };
+    }
+  },
+};
+
 export default apiClient;

@@ -11,10 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService, revenuesService, budgetService } from '../services/apiService';
+import { accountService, revenuesService, budgetService, objectifsService } from '../services/apiService';
 
 const EditFormScreen = ({ navigation, route }) => {
-  const { revenuData, budgetData, onSuccess } = route.params || {};
+  const { revenuData, budgetData, objectifData, onSuccess } = route.params || {};
   
   // Formater la date au format YYYY-MM-DD
   const formatDate = (dateStr) => {
@@ -31,6 +31,15 @@ const EditFormScreen = ({ navigation, route }) => {
       ? {
           mois: budgetData?.mois || new Date().toISOString().slice(0, 7),
           montant_max: budgetData?.montant_max?.toString() || '',
+        }
+      : objectifData
+      ? {
+          nom: objectifData?.nom || '',
+          montant_objectif: objectifData?.montant_objectif?.toString() || '',
+          date_limite: objectifData?.date_limite?.slice(0, 10) || '',
+          montant_actuel: objectifData?.montant_actuel?.toString() || '0',
+          icone: objectifData?.icone || 'Target',
+          couleur: objectifData?.couleur || '#3B82F6',
         }
       : {
           description: revenuData?.source || '',
@@ -62,14 +71,14 @@ const EditFormScreen = ({ navigation, route }) => {
 
   // Charger les données nécessaires au montage du composant
   useEffect(() => {
-    if (!budgetData) {
+    if (!budgetData && !objectifData) {
       loadComptes();
       loadCategories();
     } else {
       // Pour afficher le nom de la catégorie dans le formulaire Budget
       loadDepenseCategories();
     }
-  }, [budgetData]);
+  }, [budgetData, objectifData]);
 
   // Charger les catégories de dépenses (pour Budget)
   const loadDepenseCategories = async () => {
@@ -157,6 +166,39 @@ const EditFormScreen = ({ navigation, route }) => {
           if (onSuccess) onSuccess(result.data);
         } else {
           Alert.alert('Erreur', result.error || 'Erreur lors de la modification du budget');
+        }
+      } catch (e) {
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      }
+      return;
+    }
+    if (objectifData) {
+      // Edition d'un objectif
+      if (!formData.nom || !formData.nom.trim()) {
+        Alert.alert('Erreur', 'Le nom est requis');
+        return;
+      }
+      const montantObj = parseFloat(formData.montant_objectif);
+      if (!Number.isFinite(montantObj) || montantObj <= 0) {
+        Alert.alert('Erreur', 'Le montant objectif est invalide');
+        return;
+      }
+      try {
+        const id_objectif = objectifData.id_objectif || objectifData.id;
+        const result = await objectifsService.updateObjectif(id_objectif, {
+          nom: formData.nom.trim(),
+          montant_objectif: montantObj,
+          date_limite: formData.date_limite,
+          montant_actuel: formData.montant_actuel ? parseFloat(formData.montant_actuel) : 0,
+          icone: formData.icone || 'Target',
+          couleur: formData.couleur || '#3B82F6',
+        });
+        if (result.success) {
+          Alert.alert('Succès', 'Objectif modifié avec succès!');
+          navigation.goBack();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          Alert.alert('Erreur', result.error || 'Erreur lors de la modification de l\'objectif');
         }
       } catch (e) {
         Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');

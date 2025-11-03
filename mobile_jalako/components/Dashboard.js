@@ -9,6 +9,8 @@ import DashboardCharts from './DashboardCharts';
 import PortefeuilleScreen from './screens/PortefeuilleScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import BudgetScreen from './screens/BudgetScreen';
+import AbonnementsScreen from './screens/AbonnementsScreen';
+import ObjectifsScreen from './screens/ObjectifsScreen';
 import DepensesScreen from './screens/DepensesScreen';
 import RevenusScreen from './screens/RevenusScreen';
 import InvestissementsScreen from './screens/InvestissementsScreen';
@@ -19,6 +21,8 @@ import LogViewer from './LogViewer';
 import BottomNavigation from './BottomNavigation';
 import AddFormScreen from './AddFormScreen';
 import EditFormScreen from './EditFormScreen';
+import AddContributionScreen from './AddContributionScreen';
+import ContributionsScreen from './ContributionsScreen';
 import NotificationScreen from './NotificationScreen';
 import ProfileScreen from './ProfileScreen';
 import { dashboardService, authService } from '../services/apiService';
@@ -34,11 +38,16 @@ const Dashboard = ({ onLogout }) => {
   const [editFormVisible, setEditFormVisible] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
   const [editFormMode, setEditFormMode] = useState(null); // 'revenu' | 'budget'
+  const [contribFormVisible, setContribFormVisible] = useState(false);
+  const [contribParams, setContribParams] = useState(null);
+  const [contribListVisible, setContribListVisible] = useState(false);
+  const [contribListParams, setContribListParams] = useState(null);
   const refreshPortefeuilleRef = useRef(null);
   const refreshRevenusRef = useRef(null);
   const refreshDepensesRef = useRef(null);
   const refreshDettesRef = useRef(null);
   const refreshBudgetRef = useRef(null);
+  const refreshObjectifsRef = useRef(null);
 
   const handleMenuPress = () => {
     setSidebarVisible(true);
@@ -77,6 +86,21 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
+  const navigateFromObjectifs = (screen, params) => {
+    if (screen === 'EditFormScreen') {
+      handleEditFormOpen(params.objectifData, 'objectif');
+    } else if (screen === 'AddContributionScreen') {
+      setContribParams(params || {});
+      setContribFormVisible(true);
+    } else if (screen === 'AddFormScreen') {
+      setCurrentScreen('objectifs');
+      setAddFormVisible(true);
+    } else if (screen === 'ContributionsScreen') {
+      setContribListParams(params || {});
+      setContribListVisible(true);
+    }
+  };
+
   const handleNotificationPress = () => {
     console.log('Notifications pressed');
   };
@@ -103,6 +127,9 @@ const Dashboard = ({ onLogout }) => {
     } else if (currentScreen === 'budget' && refreshBudgetRef.current) {
       console.log('Rechargement des budgets...');
       refreshBudgetRef.current();
+    } else if (currentScreen === 'objectifs' && refreshObjectifsRef.current) {
+      console.log('Rechargement des objectifs...');
+      refreshObjectifsRef.current();
     }
     setAddFormVisible(false);
   };
@@ -276,9 +303,16 @@ const Dashboard = ({ onLogout }) => {
           }}
         />;
       case 'objectifs':
-        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par ObjectifsScreen
+        return <ObjectifsScreen 
+          onBack={() => setCurrentScreen('dashboard')} 
+          onRefreshCallback={(callback) => (refreshObjectifsRef.current = callback)}
+          navigation={{
+            navigate: navigateFromObjectifs,
+            goBack: handleEditFormClose,
+          }}
+        />;
       case 'abonnements':
-        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par AbonnementsScreen
+        return <AbonnementsScreen onBack={() => setCurrentScreen('dashboard')} />;
       case 'alertes':
         return <NotificationScreen onBack={() => setCurrentScreen('dashboard')} />
       case 'profile':
@@ -374,11 +408,32 @@ const Dashboard = ({ onLogout }) => {
             params: {
               revenuData: editFormMode === 'revenu' ? editFormData : undefined,
               budgetData: editFormMode === 'budget' ? editFormData : undefined,
+              objectifData: editFormMode === 'objectif' ? editFormData : undefined,
               onSuccess: handleEditFormSuccess,
             }
           }}
         />
       )}
+
+      {/* Add Contribution Screen */}
+      {contribFormVisible && (
+        <AddContributionScreen
+          navigation={{
+            goBack: () => setContribFormVisible(false),
+          }}
+          route={{ params: { ...contribParams } }}
+        />
+      )}
+
+      {contribListVisible && (
+        <ContributionsScreen
+          navigation={{
+            goBack: () => setContribListVisible(false),
+          }}
+          route={{ params: { ...contribListParams } }}
+        />
+      )}
+
 
       {/* Bottom Navigation */}
       <BottomNavigation

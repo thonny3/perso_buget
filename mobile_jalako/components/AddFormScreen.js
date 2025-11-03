@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService, revenuesService, depensesService, categoryService, investissementsService, dettesService, budgetService } from '../services/apiService';
+import { accountService, revenuesService, depensesService, categoryService, investissementsService, dettesService, budgetService, objectifsService } from '../services/apiService';
 
 const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   const [selectedType, setSelectedType] = useState(null);
@@ -108,6 +108,18 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
         creancier: '',
         type: 'personne'
       });
+    } else if (visible && currentScreen === 'objectifs') {
+      setSelectedType('objectif');
+      setShowForm(true);
+      setFormData({
+        nom: '',
+        montant_objectif: '',
+        date_limite: '',
+        montant_actuel: '0',
+        icone: 'Target',
+        couleur: '#3B82F6',
+      });
+    
     } else if (visible) {
       setSelectedType(null);
       setShowForm(false);
@@ -218,6 +230,46 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   };
 
   const handleFormSubmit = async () => {
+    if (selectedType === 'objectif') {
+      if (!formData.nom || !formData.nom.trim()) {
+        Alert.alert('Erreur', 'Le nom est requis');
+        return;
+      }
+      if (!formData.montant_objectif || parseFloat(formData.montant_objectif) <= 0) {
+        Alert.alert('Erreur', 'Le montant objectif doit être positif');
+        return;
+      }
+      if (!formData.date_limite) {
+        Alert.alert('Erreur', 'La date limite est requise');
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const payload = {
+          nom: formData.nom.trim(),
+          montant_objectif: parseFloat(formData.montant_objectif),
+          date_limite: formData.date_limite,
+          montant_actuel: formData.montant_actuel ? parseFloat(formData.montant_actuel) : 0,
+          statut: 'En cours',
+          pourcentage: 0,
+          icone: formData.icone || 'Target',
+          couleur: formData.couleur || '#3B82F6',
+        };
+        const res = await objectifsService.createObjectif(payload);
+        if (res.success) {
+          Alert.alert('Succès', 'Objectif créé');
+          resetForm();
+          if (onSuccess) onSuccess(res.data);
+        } else {
+          Alert.alert('Erreur', res.error || 'Création impossible');
+        }
+      } catch (e) {
+        Alert.alert('Erreur', 'Erreur de connexion. Réessayez.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     if (selectedType === 'budget') {
       if (!formData.mois || !formData.montant_max || !formData.id_categorie_depense) {
         Alert.alert('Erreur', 'Veuillez renseigner le mois, le montant et la catégorie');
