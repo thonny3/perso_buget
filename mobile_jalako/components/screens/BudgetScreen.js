@@ -20,13 +20,39 @@ const BudgetScreen = ({ onBack }) => {
   const [formData, setFormData] = useState({
     mois: '',
     montant_max: '',
-    id_categories_depenses: ''
+    id_categorie_depense: ''
   });
 
   // Fonction pour obtenir le mois actuel au format YYYY-MM
   const getCurrentMonth = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const handleDelete = async (id_budget) => {
+    try {
+      Alert.alert(
+        'Confirmer',
+        'Supprimer ce budget ? Cette action est irréversible.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { 
+            text: 'Supprimer', 
+            style: 'destructive', 
+            onPress: async () => {
+              const result = await budgetService.deleteBudget(id_budget);
+              if (result.success) {
+                loadBudgets();
+              } else {
+                Alert.alert('Erreur', result.error || 'Suppression impossible');
+              }
+            }
+          }
+        ]
+      );
+    } catch (e) {
+      Alert.alert('Erreur', 'Suppression impossible');
+    }
   };
 
   // Fonction pour formater le mois d'affichage
@@ -127,7 +153,7 @@ const BudgetScreen = ({ onBack }) => {
 
   // Fonctions pour gérer les budgets
   const handleSubmit = async () => {
-    if (!formData.montant_max || !formData.id_categories_depenses || !formData.mois) {
+    if (!formData.montant_max || !formData.id_categorie_depense || !formData.mois) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
@@ -162,7 +188,7 @@ const BudgetScreen = ({ onBack }) => {
     setFormData({
       mois: '',
       montant_max: '',
-      id_categories_depenses: ''
+      id_categorie_depense: ''
     });
     setEditingBudget(null);
     setModalVisible(false);
@@ -374,7 +400,7 @@ const BudgetScreen = ({ onBack }) => {
                       <TouchableOpacity style={styles.actionButton}>
                         <Feather name="edit-2" size={16} color="#3b82f6" />
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.actionButton}>
+                      <TouchableOpacity style={styles.actionButton} onPress={() => handleDelete(budget.id_budget)}>
                         <Feather name="trash-2" size={16} color="#dc2626" />
                       </TouchableOpacity>
                     </View>
@@ -478,24 +504,27 @@ const BudgetScreen = ({ onBack }) => {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Catégorie de Dépense</Text>
                 <View style={styles.categorySelector}>
-                  {categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryOption,
-                        formData.id_categories_depenses === category.id.toString() && styles.categoryOptionSelected
-                      ]}
-                      onPress={() => setFormData({...formData, id_categories_depenses: category.id.toString()})}
-                    >
-                      <Text style={[
-                        styles.categoryOptionText,
-                        formData.id_categories_depenses === category.id.toString() && styles.categoryOptionTextSelected
-                      ]}>
-                        {category.nom}
-                      </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                  {categories.map((category) => {
+                    const isSelected = Number(formData.id_categorie_depense) === Number(category.id);
+                    return (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.categoryOption,
+                          isSelected && styles.categoryOptionSelected
+                        ]}
+                        onPress={() => setFormData({ ...formData, id_categorie_depense: category.id })}
+                      >
+                        <Text style={[
+                          styles.categoryOptionText,
+                          isSelected && styles.categoryOptionTextSelected
+                        ]}>
+                          {category.nom}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
       </View>
     </View>
 

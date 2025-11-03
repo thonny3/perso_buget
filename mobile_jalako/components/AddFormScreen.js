@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { accountService, revenuesService, depensesService, categoryService } from '../services/apiService';
+import { accountService, revenuesService, depensesService, categoryService, investissementsService, dettesService } from '../services/apiService';
 
 const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   const [selectedType, setSelectedType] = useState(null);
@@ -19,6 +19,7 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
   const [formData, setFormData] = useState({});
   const [isSelectOpen, setIsSelectOpen] = useState(false);
   const [isSourceSelectOpen, setIsSourceSelectOpen] = useState(false);
+  const [isDetteTypeOpen, setIsDetteTypeOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [sourceSearchText, setSourceSearchText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +69,35 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
       });
       loadComptes(); // Charger les comptes pour le formulaire de dépenses
       loadDepenseCategories(); // Charger les catégories pour le formulaire de dépenses
+    } else if (visible && currentScreen === 'investissements') {
+      setSelectedType('investissement');
+      setShowForm(true);
+      // Initialiser les données du formulaire d'investissement
+      setFormData({
+        nom: '',
+        type: 'immobilier',
+        projet: '',
+        date_achat: new Date().toISOString().split('T')[0],
+        montant_investi: '',
+        valeur_actuelle: '',
+        duree_mois: '',
+        taux_prevu: ''
+      });
+    } else if (visible && currentScreen === 'dettes') {
+      setSelectedType('dette');
+      setShowForm(true);
+      // Initialiser les données du formulaire de dette
+      setFormData({
+        nom: '',
+        montant_initial: '',
+        montant_restant: '',
+        taux_interet: '0',
+        date_debut: new Date().toISOString().split('T')[0],
+        date_fin_prevue: '',
+        paiement_mensuel: '0',
+        creancier: '',
+        type: 'personne'
+      });
     } else if (visible) {
       setSelectedType(null);
       setShowForm(false);
@@ -336,6 +366,97 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
       } finally {
         setIsLoading(false);
       }
+    } else if (selectedType === 'investissement') {
+      // Validation pour l'investissement
+      if (!formData.nom || !formData.nom.trim()) {
+        Alert.alert('Erreur', 'Le nom de l\'investissement est requis');
+        return;
+      }
+      
+      if (!formData.montant_investi || parseFloat(formData.montant_investi) <= 0) {
+        Alert.alert('Erreur', 'Le montant investi doit être positif');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const investissementData = {
+          nom: formData.nom.trim(),
+          type: formData.type || 'immobilier',
+          projet: formData.projet || null,
+          date_achat: formData.date_achat || new Date().toISOString().split('T')[0],
+          montant_investi: parseFloat(formData.montant_investi),
+          valeur_actuelle: formData.valeur_actuelle ? parseFloat(formData.valeur_actuelle) : null,
+          duree_mois: formData.duree_mois ? parseFloat(formData.duree_mois) : null,
+          taux_prevu: formData.taux_prevu ? parseFloat(formData.taux_prevu) : null
+        };
+
+        console.log('📤 ========== AJOUT INVESTISSEMENT ==========');
+        console.log('📋 formData:', formData);
+        console.log('📋 investissementData:', investissementData);
+        console.log('================================');
+
+        const result = await investissementsService.createInvestissement(investissementData);
+        
+        console.log('✅ Résultat création investissement:', result);
+
+        if (result.success) {
+          console.log('Investissement créé avec succès:', result.data);
+          Alert.alert('Succès', 'Investissement ajouté avec succès!');
+          
+          resetForm();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          console.error('Erreur lors de la création de l\'investissement:', result.error);
+          Alert.alert('Erreur', result.error || 'Erreur lors de la création de l\'investissement');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la création de l\'investissement:', error);
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (selectedType === 'dette') {
+      // Validation pour la dette
+      if (!formData.nom || !formData.nom.trim()) {
+        Alert.alert('Erreur', 'Le nom de la dette est requis');
+        return;
+      }
+      if (!formData.montant_initial || parseFloat(formData.montant_initial) <= 0) {
+        Alert.alert('Erreur', 'Le montant initial doit être positif');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const detteData = {
+          nom: formData.nom.trim(),
+          montant_initial: parseFloat(formData.montant_initial),
+          montant_restant: formData.montant_restant === '' ? undefined : parseFloat(formData.montant_restant),
+          taux_interet: parseFloat(formData.taux_interet || 0),
+          date_debut: formData.date_debut || new Date().toISOString().split('T')[0],
+          date_fin_prevue: formData.date_fin_prevue || null,
+          paiement_mensuel: parseFloat(formData.paiement_mensuel || 0),
+          creancier: formData.creancier || '',
+          type: formData.type || 'personne'
+        };
+
+        const result = await dettesService.createDette(detteData);
+
+        if (result.success) {
+          Alert.alert('Succès', 'Dette ajoutée avec succès!');
+          resetForm();
+          if (onSuccess) onSuccess(result.data);
+        } else {
+          Alert.alert('Erreur', result.error || 'Erreur lors de la création de la dette');
+        }
+      } catch (error) {
+        Alert.alert('Erreur', 'Erreur de connexion. Veuillez réessayer.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -381,6 +502,14 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
         return [
           { id: 'budget', label: 'Nouveau Budget', icon: '📊' },
           { id: 'objectif', label: 'Nouvel Objectif', icon: '🎯' },
+        ];
+      case 'investissements':
+        return [
+          { id: 'investissement', label: 'Nouvel Investissement', icon: '📈' },
+        ];
+      case 'dettes':
+        return [
+          { id: 'dette', label: 'Nouvelle Dette', icon: '🧾' },
         ];
       case 'transactions':
         return [
@@ -862,6 +991,311 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
     </View>
   );
 
+  const renderInvestissementForm = () => (
+    <View style={styles.formContainer}>
+      {/* Header simplifié */}
+      <View style={styles.formHeader}>
+        <Text style={styles.formTitle}>Ajouter un investissement</Text>
+      </View>
+      
+      {/* Formulaire simplifié */}
+      <View style={styles.formContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Nom de l'investissement</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ex: Appartement Paris, Actions..."
+            placeholderTextColor="#9ca3af"
+            value={formData.nom || ''}
+            onChangeText={(text) => setFormData({...formData, nom: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Type</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsSelectOpen(!isSelectOpen)}
+          >
+            <Text style={styles.selectText}>
+              {formData.type === 'immobilier' ? 'Immobilier' :
+               formData.type === 'actions' ? 'Actions' :
+               formData.type === 'crypto' ? 'Crypto-monnaie' :
+               formData.type === 'or' ? 'Or' :
+               formData.type === 'autre' ? 'Autre' :
+               'Sélectionner un type'}
+            </Text>
+            <Text style={[styles.selectArrow, isSelectOpen && styles.selectArrowOpen]}>
+              ▼
+            </Text>
+          </TouchableOpacity>
+          
+          {isSelectOpen && (
+            <View style={styles.selectDropdown}>
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {[
+                  { value: 'immobilier', label: 'Immobilier' },
+                  { value: 'actions', label: 'Actions' },
+                  { value: 'crypto', label: 'Crypto-monnaie' },
+                  { value: 'or', label: 'Or' },
+                  { value: 'autre', label: 'Autre' }
+                ].map((type) => (
+                  <TouchableOpacity
+                    key={type.value}
+                    style={[
+                      styles.selectOption,
+                      formData.type === type.value && styles.selectOptionSelected
+                    ]}
+                    onPress={() => {
+                      setFormData({...formData, type: type.value});
+                      setIsSelectOpen(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.type === type.value && styles.selectOptionTextSelected
+                    ]}>
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Projet (optionnel)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ex: Résidence principale, Portfolio..."
+            placeholderTextColor="#9ca3af"
+            value={formData.projet || ''}
+            onChangeText={(text) => setFormData({...formData, projet: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Date d'achat</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#9ca3af"
+            value={formData.date_achat || new Date().toISOString().split('T')[0]}
+            onChangeText={(text) => setFormData({...formData, date_achat: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant investi (Ar) *</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant_investi || ''}
+            onChangeText={(text) => setFormData({...formData, montant_investi: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Valeur actuelle (Ar) - optionnel</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.valeur_actuelle || ''}
+            onChangeText={(text) => setFormData({...formData, valeur_actuelle: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Durée en mois - optionnel</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="12"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.duree_mois || ''}
+            onChangeText={(text) => setFormData({...formData, duree_mois: text})}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Taux prévu (%) - optionnel</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="5"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.taux_prevu || ''}
+            onChangeText={(text) => setFormData({...formData, taux_prevu: text})}
+          />
+        </View>
+      </View>
+
+      {/* Boutons d'action simplifiés */}
+      <View style={styles.formButtons}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleBackToOptions}
+        >
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+          onPress={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>Créer</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderDetteForm = () => (
+    <View style={styles.formContainer}>
+      <View style={styles.formHeader}>
+        <Text style={styles.formTitle}>Ajouter une dette</Text>
+      </View>
+      <View style={styles.formContent}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Nom</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ex: Prêt bancaire"
+            placeholderTextColor="#9ca3af"
+            value={formData.nom || ''}
+            onChangeText={(text) => setFormData({ ...formData, nom: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Créancier</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Banque, personne..."
+            placeholderTextColor="#9ca3af"
+            value={formData.creancier || ''}
+            onChangeText={(text) => setFormData({ ...formData, creancier: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant initial (Ar)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant_initial || ''}
+            onChangeText={(text) => setFormData({ ...formData, montant_initial: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Montant restant (Ar) - optionnel</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+            value={formData.montant_restant || ''}
+            onChangeText={(text) => setFormData({ ...formData, montant_restant: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Taux d'intérêt (%)</Text>
+          <TextInput
+            style={styles.textInput}
+            keyboardType="numeric"
+            value={formData.taux_interet || '0'}
+            onChangeText={(text) => setFormData({ ...formData, taux_interet: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Paiement mensuel (Ar)</Text>
+          <TextInput
+            style={styles.textInput}
+            keyboardType="numeric"
+            value={formData.paiement_mensuel || '0'}
+            onChangeText={(text) => setFormData({ ...formData, paiement_mensuel: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Date de début</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#9ca3af"
+            value={formData.date_debut || new Date().toISOString().split('T')[0]}
+            onChangeText={(text) => setFormData({ ...formData, date_debut: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Date fin prévue (optionnel)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#9ca3af"
+            value={formData.date_fin_prevue || ''}
+            onChangeText={(text) => setFormData({ ...formData, date_fin_prevue: text })}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Type</Text>
+          <TouchableOpacity 
+            style={styles.selectContainer}
+            onPress={() => setIsDetteTypeOpen(!isDetteTypeOpen)}
+          >
+            <Text style={styles.selectText}>
+              {formData.type === 'personne' ? 'Personne' : formData.type === 'banque' ? 'Banque' : 'Autre'}
+            </Text>
+            <Text style={[styles.selectArrow, isDetteTypeOpen && styles.selectArrowOpen]}>▼</Text>
+          </TouchableOpacity>
+          {isDetteTypeOpen && (
+            <View style={styles.selectDropdown}>
+              {[
+                { value: 'personne', label: 'Personne' },
+                { value: 'banque', label: 'Banque' },
+                { value: 'autre', label: 'Autre' }
+              ].map((t) => (
+                <TouchableOpacity key={t.value} style={styles.selectOption} onPress={() => {
+                  setFormData({ ...formData, type: t.value });
+                  setIsDetteTypeOpen(false);
+                }}>
+                  <Text style={styles.selectOptionText}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+      <View style={styles.formButtons}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleBackToOptions}
+        >
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+          onPress={handleFormSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>Ajouter</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const formOptions = getFormOptions();
 
   return (
@@ -890,6 +1324,10 @@ const AddFormScreen = ({ visible, onClose, currentScreen, onSuccess }) => {
                 renderRevenueForm()
               ) : showForm && selectedType === 'depense' ? (
                 renderDepenseForm()
+              ) : showForm && selectedType === 'investissement' ? (
+                renderInvestissementForm()
+              ) : showForm && selectedType === 'dette' ? (
+                renderDetteForm()
               ) : currentScreen === 'portefeuille' ? (
                 // Si on est dans portefeuille mais pas encore de formulaire, afficher les options
                 <>

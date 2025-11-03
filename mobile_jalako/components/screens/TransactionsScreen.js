@@ -177,6 +177,19 @@ const TransactionsScreen = ({ onBack }) => {
     }
   };
 
+  // Récupérer libellés compte et utilisateur
+  const getAccountName = (t) => (
+    t?.compte?.nom || t?.compte_nom || t?.nom_compte || t?.account_name || t?.compte || 'Compte'
+  );
+  const getUserName = (t) => {
+    const name = (
+      t?.utilisateur?.nom || t?.utilisateur?.username || t?.utilisateur?.prenom || t?.utilisateur?.name ||
+      t?.user?.nom || t?.user?.username || t?.user?.prenom || t?.user?.name ||
+      t?.user_name || t?.nom_utilisateur || t?.username || t?.name || t?.email || t?.utilisateur
+    );
+    return name || '';
+  };
+
   // Fonction pour créer une nouvelle transaction
   const createNewTransaction = () => {
     Alert.alert(
@@ -230,6 +243,14 @@ const TransactionsScreen = ({ onBack }) => {
   const filteredTransactions = getFilteredTransactions();
   const paginatedTransactions = getPaginatedTransactions();
 
+  // Totaux pour cartes
+  const sumByType = (list, predicate) => list.reduce((s, t) => s + Number(t.montant || 0) * (predicate(t) ? 1 : 0), 0);
+  const totalRevenus = sumByType(transactions, (t) => t.type === 'revenu');
+  const totalDepenses = sumByType(transactions, (t) => t.type === 'depense');
+  const isContribution = (t) => (t.type === 'contribution') || (String(t.categorie || '').toLowerCase().includes('contrib'));
+  const totalContributions = sumByType(transactions, isContribution);
+  const formatAmount = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -241,6 +262,37 @@ const TransactionsScreen = ({ onBack }) => {
             <Text style={styles.title}>Mes Transactions</Text>
             <Text style={styles.subtitle}>Historique de vos mouvements</Text>
           </View>
+        </View>
+      </View>
+
+      {/* Cartes de synthèse */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <View style={styles.statHeaderRow}>
+            <View style={[styles.statIcon, { backgroundColor: '#dbeafe' }]}>
+              <Feather name="arrow-up-right" size={18} color="#3b82f6" />
+            </View>
+            <Text style={styles.statLabel}>Revenus</Text>
+          </View>
+          <Text style={[styles.statValue, { color: '#10b981' }]}>{formatAmount(totalRevenus)} Ar</Text>
+        </View>
+        <View style={styles.statCard}>
+          <View style={styles.statHeaderRow}>
+            <View style={[styles.statIcon, { backgroundColor: '#fee2e2' }]}>
+              <Feather name="arrow-down-right" size={18} color="#ef4444" />
+            </View>
+            <Text style={styles.statLabel}>Dépenses</Text>
+          </View>
+          <Text style={[styles.statValue, { color: '#ef4444' }]}>{formatAmount(totalDepenses)} Ar</Text>
+        </View>
+        <View style={styles.statCard}>
+          <View style={styles.statHeaderRow}>
+            <View style={[styles.statIcon, { backgroundColor: '#d1fae5' }]}>
+              <Feather name="gift" size={18} color="#10b981" />
+            </View>
+            <Text style={styles.statLabel}>Contributions</Text>
+          </View>
+          <Text style={[styles.statValue, { color: '#059669' }]}>{formatAmount(totalContributions)} Ar</Text>
         </View>
       </View>
 
@@ -336,6 +388,18 @@ const TransactionsScreen = ({ onBack }) => {
                   <Text style={styles.transactionCategory}>
                     {transaction.categorie || transaction.type || 'Non catégorisé'}
                   </Text>
+                  <View style={styles.infoChips}>
+                    <View style={[styles.chip, { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }]}>
+                      <Feather name="credit-card" size={12} color="#475569" style={styles.chipIcon} />
+                      <Text style={styles.chipText}>{getAccountName(transaction)}</Text>
+                    </View>
+                    {!!getUserName(transaction) && (
+                      <View style={[styles.chip, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+                        <Feather name="user" size={12} color="#047857" style={styles.chipIcon} />
+                        <Text style={[styles.chipText, { color: '#065f46' }]}>{getUserName(transaction)}</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.transactionDate}>
                     {formatDate(transaction.date_transaction || transaction.date || new Date())}
                   </Text>
@@ -532,6 +596,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  statHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
   filters: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -603,6 +705,29 @@ const styles = StyleSheet.create({
   },
   transactionInfo: {
     flex: 1,
+  },
+  infoChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 6,
+    flexWrap: 'wrap',
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipIcon: {
+    marginRight: 4,
+  },
+  chipText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
   },
   transactionDescription: {
     fontSize: 16,

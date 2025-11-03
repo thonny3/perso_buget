@@ -11,6 +11,8 @@ import TransactionsScreen from './screens/TransactionsScreen';
 import BudgetScreen from './screens/BudgetScreen';
 import DepensesScreen from './screens/DepensesScreen';
 import RevenusScreen from './screens/RevenusScreen';
+import InvestissementsScreen from './screens/InvestissementsScreen';
+import DettesScreen from './screens/DettesScreen';
 import AnimatedScreen from './AnimatedScreen';
 import ConnectionDebugger from './ConnectionDebugger';
 import LogViewer from './LogViewer';
@@ -34,6 +36,7 @@ const Dashboard = ({ onLogout }) => {
   const refreshPortefeuilleRef = useRef(null);
   const refreshRevenusRef = useRef(null);
   const refreshDepensesRef = useRef(null);
+  const refreshDettesRef = useRef(null);
 
   const handleMenuPress = () => {
     setSidebarVisible(true);
@@ -92,6 +95,9 @@ const Dashboard = ({ onLogout }) => {
     } else if (currentScreen === 'depenses' && refreshDepensesRef.current) {
       console.log('Rechargement des dépenses...');
       refreshDepensesRef.current();
+    } else if (currentScreen === 'dettes' && refreshDettesRef.current) {
+      console.log('Rechargement des dettes...');
+      refreshDettesRef.current();
     }
   };
 
@@ -206,14 +212,24 @@ const Dashboard = ({ onLogout }) => {
           </>
         );
       case 'dettes':
-        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par DettesScreen
+        return <DettesScreen 
+          onBack={() => setCurrentScreen('dashboard')} 
+          onRefreshCallback={(callback) => refreshDettesRef.current = callback}
+        />;
       case 'portefeuille':
         return <PortefeuilleScreen 
           onBack={() => setCurrentScreen('dashboard')} 
           onRefreshCallback={(callback) => refreshPortefeuilleRef.current = callback}
         />;
       case 'investissements':
-        return <BudgetScreen onBack={() => setCurrentScreen('dashboard')} />; // Temporaire, à remplacer par InvestissementsScreen
+        return <InvestissementsScreen 
+          onBack={() => setCurrentScreen('dashboard')} 
+          onRefreshCallback={() => {}}
+          onAddPress={() => {
+            setAddFormVisible(true);
+            setCurrentScreen('investissements');
+          }}
+        />
       case 'depenses':
         return <DepensesScreen 
           onBack={() => setCurrentScreen('dashboard')} 

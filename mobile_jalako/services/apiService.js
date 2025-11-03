@@ -940,6 +940,87 @@ export const depensesService = {
   },
 };
 
+// Services des dettes
+export const dettesService = {
+  // Lister les dettes
+  getDettes: async () => {
+    try {
+      const response = await apiClient.get('/dettes');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des dettes',
+      };
+    }
+  },
+
+  // Créer une dette
+  createDette: async (detteData) => {
+    try {
+      const response = await apiClient.post('/dettes', detteData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la création de la dette',
+      };
+    }
+  },
+
+  // Mettre à jour une dette
+  updateDette: async (id, detteData) => {
+    try {
+      const response = await apiClient.put(`/dettes/${id}`, detteData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la mise à jour de la dette',
+      };
+    }
+  },
+
+  // Supprimer une dette
+  deleteDette: async (id) => {
+    try {
+      await apiClient.delete(`/dettes/${id}`);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la suppression de la dette',
+      };
+    }
+  },
+
+  // Ajouter un remboursement
+  addRemboursement: async (id_dette, payload) => {
+    try {
+      const response = await apiClient.post(`/dettes/${id_dette}/remboursements`, payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || "Erreur lors de l'ajout du remboursement",
+      };
+    }
+  },
+
+  // Lister les remboursements d'une dette
+  listRemboursements: async (id_dette) => {
+    try {
+      const response = await apiClient.get(`/dettes/${id_dette}/remboursements`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des remboursements',
+      };
+    }
+  },
+};
+
 // Service dédié aux comptes partagés
 export const sharedAccountsService = {
   // Obtenir les comptes partagés d'un utilisateur
@@ -1003,6 +1084,114 @@ export const sharedAccountsService = {
       return {
         success: false,
         error: error.response?.data?.message || 'Erreur lors de la suppression du partage',
+      };
+    }
+  },
+};
+
+// Service pour les investissements
+export const investissementsService = {
+  // Obtenir tous les investissements de l'utilisateur
+  getInvestissements: async () => {
+    try {
+      const response = await apiClient.get('/investissements');
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('❌ getInvestissements error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des investissements',
+      };
+    }
+  },
+
+  // Créer un nouvel investissement
+  createInvestissement: async (investissementData) => {
+    try {
+      const response = await apiClient.post('/investissements', investissementData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la création de l\'investissement',
+      };
+    }
+  },
+
+  // Mettre à jour un investissement
+  updateInvestissement: async (id, investissementData) => {
+    try {
+      const response = await apiClient.put(`/investissements/${id}`, investissementData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la mise à jour de l\'investissement',
+      };
+    }
+  },
+
+  // Supprimer un investissement
+  deleteInvestissement: async (id) => {
+    try {
+      await apiClient.delete(`/investissements/${id}`);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de la suppression de l\'investissement',
+      };
+    }
+  },
+
+  // Obtenir les revenus d'un investissement
+  getRevenus: async (id_investissement) => {
+    try {
+      const response = await apiClient.get(`/investissements/${id_investissement}/revenus`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des revenus',
+      };
+    }
+  },
+
+  // Ajouter un revenu à un investissement
+  addRevenu: async (id_investissement, revenuData) => {
+    try {
+      const response = await apiClient.post(`/investissements/${id_investissement}/revenus`, revenuData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de l\'ajout du revenu',
+      };
+    }
+  },
+
+  // Obtenir les dépenses d'un investissement
+  getDepenses: async (id_investissement) => {
+    try {
+      const response = await apiClient.get(`/investissements/${id_investissement}/depenses`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors du chargement des dépenses',
+      };
+    }
+  },
+
+  // Ajouter une dépense à un investissement
+  addDepense: async (id_investissement, depenseData) => {
+    try {
+      const response = await apiClient.post(`/investissements/${id_investissement}/depenses`, depenseData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Erreur lors de l\'ajout de la dépense',
       };
     }
   },
