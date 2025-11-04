@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS Contributions (
               date_fin_prevue DATE,
               paiement_mensuel DECIMAL(12,2) DEFAULT 0,
               creancier VARCHAR(200),
+              sens VARCHAR(10) DEFAULT 'autre',
               statut VARCHAR(50) DEFAULT 'en cours',
               type VARCHAR(50) DEFAULT 'personne',
               FOREIGN KEY (id_user) REFERENCES Users(id_user)
@@ -343,7 +344,11 @@ CREATE TABLE IF NOT EXISTS Contributions (
                                                                         if (err) throw err;
                                                                         console.log('Table Dettes OK');
 
-                                                                        dbBudget.query(createRemboursementsTable, (err) => {
+                                                                        const alterDettesAddSens = "ALTER TABLE Dettes ADD COLUMN IF NOT EXISTS sens VARCHAR(10) DEFAULT 'autre' AFTER creancier";
+                                                                        dbBudget.query(alterDettesAddSens, (_err) => {
+                                                                            // ignore if not supported
+
+                                                                            dbBudget.query(createRemboursementsTable, (err) => {
                                                                             if (err) throw err;
                                                                             console.log('Table Remboursements OK');
 
