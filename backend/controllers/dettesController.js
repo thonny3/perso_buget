@@ -16,7 +16,7 @@ const DettesController = {
           const dateFin = d?.date_fin_prevue ? new Date(d.date_fin_prevue) : null;
           const montantInitial = Number(d?.montant_initial || 0);
           const montantRestant = Number(d?.montant_restant || 0);
-          if (montantRestant >= montantInitial) {
+          if (montantRestant <= 0) {
             out.statut = 'terminé';
           } else if (dateFin && !isNaN(dateFin) && dateFin < startOfToday) {
             out.statut = 'en retard';
@@ -36,7 +36,17 @@ const DettesController = {
     if (!payload.id_user || !payload.nom) return res.status(400).json({ error: 'id_user et nom requis' });
     Dettes.create(payload, (err, result) => {
       if (err) return res.status(500).json({ error: err.message || err });
-      res.json({ id_dette: result.insertId });
+      const id_compte = payload.id_compte ? Number(payload.id_compte) : null;
+      const montant = Number(payload.montant_initial || 0);
+      const sens = (payload.sens || 'autre');
+      if (!id_compte || !(montant > 0)) {
+        return res.json({ id_dette: result.insertId });
+      }
+      const sign = sens === 'moi' ? -1 : 1; // moi: sortie; autre: entrée
+      db.query('UPDATE Comptes SET solde = solde + ? WHERE id_compte = ? AND id_user = ?', [sign * montant, id_compte, payload.id_user], (eUpd) => {
+        if (eUpd) return res.status(500).json({ error: eUpd.message || eUpd });
+        res.json({ id_dette: result.insertId });
+      });
     });
   },
 
@@ -74,8 +84,8 @@ const DettesController = {
   addPayment: (req, res) => {
     const payload = req.body || {};
     payload.id_user = req.user?.id_user || payload.id_user;
-    if (!payload.id_user || !payload.id_dette || !payload.montant || !payload.date_paiement) {
-      return res.status(400).json({ error: 'id_user, id_dette, montant, date_paiement requis' });
+    if (!payload.id_user || !payload.id_dette || !payload.montant || !payload.date_paiement || !payload.id_compte) {
+      return res.status(400).json({ error: 'id_user, id_dette, montant, date_paiement, id_compte requis' });
     }
 
     const montant = Number(payload.montant);
@@ -90,18 +100,18 @@ const DettesController = {
       const restant = Number(rows[0].montant_restant || 0);
       const sens = rows[0].sens || 'autre';
       const plafond = Number(rows[0].montant_initial || 0);
-      if (restant + montant > plafond) {
-        return res.status(400).json({ error: 'Montant dépasse le montant prévu pour cette dette' });
+      if (montant > restant) {
+        return res.status(400).json({ error: 'Montant supérieur au restant de la dette' });
       }
 
-      // 2) Si compte fourni, vérifier le solde
+      // 2) Vérifier le compte: pour sens 'autre' (Entrée initiale → remboursement = sortie), on doit vérifier le solde suffisant
       const checkCompte = (cb) => {
-        if (!payload.id_compte) return cb(null, true);
         db.query('SELECT solde FROM Comptes WHERE id_compte=? AND id_user=? LIMIT 1', [payload.id_compte, payload.id_user], (e2, r2) => {
           if (e2) return cb(e2);
           if (!r2 || r2.length === 0) return cb({ status: 404, message: 'Compte introuvable' });
           const solde = Number(r2[0].solde || 0);
-          if (solde < montant) return cb({ status: 400, message: 'Solde insuffisant' });
+          // sens === 'autre' => remboursement = sortie => vérifier le solde
+          if (sens === 'autre' && solde < montant) return cb({ status: 400, message: 'Solde insuffisant' });
           cb(null, true);
         });
       };
@@ -116,17 +126,16 @@ const DettesController = {
         Remboursements.create(payload, (errCreate, result) => {
           if (errCreate) return res.status(500).json({ error: errCreate.message || errCreate });
 
-          // 4) Mettre à jour la dette: on augmente le restant jusqu'au plafond
+          // 4) Mettre à jour la dette: on diminue le restant
           const updateDetteSql = `UPDATE Dettes
-            SET montant_restant = LEAST(montant_restant + ?, montant_initial),
-                statut = CASE WHEN (montant_restant + ?) >= montant_initial THEN 'terminé' ELSE statut END
+            SET montant_restant = GREATEST(montant_restant - ?, 0),
+                statut = CASE WHEN (montant_restant - ?) <= 0 THEN 'terminé' ELSE statut END
             WHERE id_dette=? AND id_user=?`;
           db.query(updateDetteSql, [montant, montant, payload.id_dette, payload.id_user], (eUpd) => {
             if (eUpd) return res.status(500).json({ error: eUpd.message || eUpd });
             // 5) Optionnel: mouvement sur le compte (si fourni) selon sens
             const maybeDebit = () => {
-              if (!payload.id_compte) return res.json({ id_remboursement: result.insertId });
-              const sign = sens === 'moi' ? -1 : 1; // moi: sortie d'argent, autre: entrée d'argent
+              const sign = sens === 'moi' ? 1 : -1; // remboursement: moi => entrée (crédit), autre => sortie (débit)
               db.query('UPDATE Comptes SET solde = solde + ? WHERE id_compte=? AND id_user=?', [sign * montant, payload.id_compte, payload.id_user], (eDeb) => {
                 if (eDeb) return res.status(500).json({ error: eDeb.message || eDeb });
                 res.json({ id_remboursement: result.insertId });

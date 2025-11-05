@@ -186,7 +186,9 @@ CREATE TABLE IF NOT EXISTS Contributions (
               sens VARCHAR(10) DEFAULT 'autre',
               statut VARCHAR(50) DEFAULT 'en cours',
               type VARCHAR(50) DEFAULT 'personne',
+              id_compte INT,
               FOREIGN KEY (id_user) REFERENCES Users(id_user)
+              , FOREIGN KEY (id_compte) REFERENCES Comptes(id_compte)
             )`;
 
             const createRemboursementsTable = `

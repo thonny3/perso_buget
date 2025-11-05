@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : mar. 04 nov. 2025 à 13:00
+-- Généré le : mer. 05 nov. 2025 à 08:07
 -- Version du serveur :  5.7.31
 -- Version de PHP : 7.3.21
 
@@ -241,8 +241,8 @@ INSERT INTO `comptes` (`id_compte`, `id_user`, `nom`, `solde`, `type`) VALUES
 (9, 4, 'zazaz', '5000.00', 'trading'),
 (10, 9, 'BNI', '982800.00', 'courant'),
 (11, 10, 'compte perso', '278600.00', 'courant'),
-(12, 12, 'Comppte epargne', '4820720.00', 'epargne'),
-(13, 12, 'Zaza', '-1000.00', 'courant'),
+(12, 12, 'Comppte epargne', '5305720.00', 'epargne'),
+(13, 12, 'Zaza', '45000.00', 'courant'),
 (21, 12, 'Tejs', '493270.00', 'epargne');
 
 -- --------------------------------------------------------
@@ -400,18 +400,21 @@ CREATE TABLE IF NOT EXISTS `dettes` (
   `sens` varchar(10) DEFAULT 'autre',
   `statut` varchar(50) NOT NULL DEFAULT 'en cours',
   `type` varchar(50) NOT NULL DEFAULT 'personne',
+  `id_compte` int(11) DEFAULT NULL,
   PRIMARY KEY (`id_dette`),
-  KEY `id_user` (`id_user`)
-) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+  KEY `id_user` (`id_user`),
+  KEY `idx_dettes_id_compte` (`id_compte`)
+) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
 
 --
 -- Déchargement des données de la table `dettes`
 --
 
-INSERT INTO `dettes` (`id_dette`, `id_user`, `nom`, `montant_initial`, `montant_restant`, `taux_interet`, `date_debut`, `date_fin_prevue`, `paiement_mensuel`, `creancier`, `sens`, `statut`, `type`) VALUES
-(1, 12, 'composé', '500.00', '500.00', '0.00', '2025-11-04', '2025-11-21', '0.00', 'Mpamarotsy composé', 'moi', 'terminé', 'personne'),
-(2, 12, 'test', '5000.00', '0.00', '0.00', '2025-11-01', '2025-11-04', '0.00', 'azazaz', 'autre', 'terminé', 'personne'),
-(3, 12, 'fffr', '2000.00', '0.00', '0.00', '2025-11-04', '2025-11-14', '0.00', 'fvv', 'moi', 'terminé', 'personne');
+INSERT INTO `dettes` (`id_dette`, `id_user`, `nom`, `montant_initial`, `montant_restant`, `taux_interet`, `date_debut`, `date_fin_prevue`, `paiement_mensuel`, `creancier`, `sens`, `statut`, `type`, `id_compte`) VALUES
+(1, 12, 'Naka vola  hanampiana compte zaza', '5000.00', '5000.00', '0.00', '2025-11-05', '2025-11-15', '0.00', 'UN-IT', 'autre', 'en cours', 'personne', 13),
+(2, 12, 'fdfdf', '50000.00', '50000.00', '0.00', '2025-11-05', '2025-11-21', '0.00', 'ghjbhj', 'autre', 'en cours', 'personne', 13),
+(3, 12, 'fdgdgd', '9000.00', '4000.00', '0.00', '2025-11-05', NULL, '0.00', 'zazaz', 'moi', 'terminé', 'personne', 13),
+(4, 12, 'gfhdfgdgd', '450000.00', '450000.00', '5.00', '2025-11-05', '2025-12-05', '0.00', 'Mahenina', 'autre', 'en cours', 'personne', 12);
 
 -- --------------------------------------------------------
 
@@ -594,7 +597,7 @@ CREATE TABLE IF NOT EXISTS `remboursements` (
   KEY `id_dette` (`id_dette`),
   KEY `id_user` (`id_user`),
   KEY `id_compte` (`id_compte`)
-) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=8 DEFAULT CHARSET=latin1;
 
 --
 -- Déchargement des données de la table `remboursements`
@@ -604,7 +607,10 @@ INSERT INTO `remboursements` (`id_remboursement`, `id_dette`, `id_user`, `montan
 (1, 4, 12, '500.00', '2025-11-20', 12),
 (2, 1, 12, '50.00', '2025-11-04', 12),
 (3, 1, 12, '10.00', '2025-11-04', 21),
-(4, 1, 12, '440.00', '2025-11-04', 12);
+(4, 1, 12, '440.00', '2025-11-04', 12),
+(5, 1, 12, '5000.00', '2025-11-05', 12),
+(6, 1, 12, '30000.00', '2025-11-05', 12),
+(7, 3, 12, '5000.00', '2025-11-05', 13);
 
 -- --------------------------------------------------------
 
