@@ -34,6 +34,13 @@ const DettesController = {
     const payload = req.body || {};
     payload.id_user = req.user?.id_user || payload.id_user;
     if (!payload.id_user || !payload.nom) return res.status(400).json({ error: 'id_user et nom requis' });
+    try {
+      const taux = Number(payload.taux_interet || 0) / 100;
+      const montantInitial = Number(payload.montant_initial || 0);
+      if (!(payload.montant_restant > 0) && montantInitial > 0 && taux > 0) {
+        payload.montant_restant = Number((montantInitial * (1 + taux)).toFixed(2));
+      }
+    } catch (_e) {}
     Dettes.create(payload, (err, result) => {
       if (err) return res.status(500).json({ error: err.message || err });
       const id_compte = payload.id_compte ? Number(payload.id_compte) : null;
@@ -93,13 +100,14 @@ const DettesController = {
       return res.status(400).json({ error: 'Montant invalide' });
     }
 
-    // 1) Charger la dette pour vérifier le restant, le sens et le plafond (montant_initial)
-    db.query('SELECT montant_restant, sens, montant_initial FROM Dettes WHERE id_dette=? AND id_user=? LIMIT 1', [payload.id_dette, payload.id_user], (err, rows) => {
+    // 1) Charger la dette pour vérifier le restant, le sens et le plafond (sans appliquer d'intérêts au remboursement)
+    db.query('SELECT montant_restant, sens, montant_initial, date_debut, taux_interet FROM Dettes WHERE id_dette=? AND id_user=? LIMIT 1', [payload.id_dette, payload.id_user], (err, rows) => {
       if (err) return res.status(500).json({ error: err.message || err });
       if (!rows || rows.length === 0) return res.status(404).json({ error: 'Dette introuvable' });
       const restant = Number(rows[0].montant_restant || 0);
       const sens = rows[0].sens || 'autre';
       const plafond = Number(rows[0].montant_initial || 0);
+      // Ne pas ajouter d'intérêts au moment du remboursement; on se base sur le restant stocké
       if (montant > restant) {
         return res.status(400).json({ error: 'Montant supérieur au restant de la dette' });
       }
@@ -126,7 +134,7 @@ const DettesController = {
         Remboursements.create(payload, (errCreate, result) => {
           if (errCreate) return res.status(500).json({ error: errCreate.message || errCreate });
 
-          // 4) Mettre à jour la dette: on diminue le restant
+          // 4) Mettre à jour la dette: on diminue le restant directement
           const updateDetteSql = `UPDATE Dettes
             SET montant_restant = GREATEST(montant_restant - ?, 0),
                 statut = CASE WHEN (montant_restant - ?) <= 0 THEN 'terminé' ELSE statut END

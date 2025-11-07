@@ -26,6 +26,7 @@ router.post('/reset-password-otp', userController.resetPasswordWithOtp);
 
 // Routes protégées
 router.get('/verify', auth, userController.verify);
+router.get('/search', auth, userController.searchUsers); // Recherche d'utilisateurs (autocomplétion)
 router.get('/', auth, isAdmin, userController.getAllUsers);
 router.get('/:id', auth, userController.getUser);
 router.put('/:id', auth, isAdmin, upload.single('image'), userController.updateUser);

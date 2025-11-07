@@ -10,6 +10,19 @@ const User = {
         db.query('SELECT * FROM Users WHERE email = ?', [email], callback);
     },
 
+    searchByEmail: (emailQuery, callback) => {
+        // Recherche partielle par email (pour autocomplétion)
+        // Retourne id_user, nom, prenom, email (sans mot de passe)
+        const sql = `
+            SELECT id_user, nom, prenom, email, devise, image, role, actif
+            FROM Users 
+            WHERE email LIKE ? AND actif = 1
+            ORDER BY email
+            LIMIT 10
+        `;
+        db.query(sql, [`%${emailQuery}%`], callback);
+    },
+
     findById: (id_user, callback) => {
         db.query('SELECT * FROM Users WHERE id_user = ?', [id_user], callback);
     },

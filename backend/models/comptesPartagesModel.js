@@ -17,14 +17,17 @@ const ComptesPartages = {
         db.query(sql, [id_compte], callback);
     },
 
-    // Trouver les comptes partagés d’un utilisateur
+    // Trouver les comptes partagés d'un utilisateur (excluant ceux dont il est propriétaire)
     findByUserId: (id_user, callback) => {
         const sql = `
-            SELECT cp.id, cp.role, c.id_compte, c.nom, c.type, c.solde
+            SELECT cp.id, cp.role, c.id_compte, c.nom, c.type, c.solde, c.id_user as id_user_proprietaire,
+                   u_proprietaire.nom as proprietaire_nom, u_proprietaire.prenom as proprietaire_prenom,
+                   u_proprietaire.email as proprietaire_email, u_proprietaire.image as proprietaire_image
             FROM Comptes_partages cp
             JOIN Comptes c ON cp.id_compte = c.id_compte
-            WHERE cp.id_user = ?`;
-        db.query(sql, [id_user], callback);
+            JOIN Users u_proprietaire ON c.id_user = u_proprietaire.id_user
+            WHERE cp.id_user = ? AND c.id_user != ?`;
+        db.query(sql, [id_user, id_user], callback);
     },
 
     // Supprimer un partage

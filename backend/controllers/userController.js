@@ -445,6 +445,35 @@ const userController = {
                 res.json({ message: 'Mot de passe mis à jour avec succès' });
             });
         });
+    },
+
+    // Rechercher des utilisateurs par email (pour autocomplétion)
+    searchUsers: (req, res) => {
+        const emailQuery = req.query.email || req.query.q || '';
+        
+        if (!emailQuery || emailQuery.length < 2) {
+            return res.json([]);
+        }
+
+        User.searchByEmail(emailQuery, (err, users) => {
+            if (err) {
+                console.error('Erreur recherche utilisateurs:', err);
+                return res.status(500).json({ error: 'Erreur serveur', details: err });
+            }
+            
+            // Retourner uniquement les informations publiques (sans mot de passe)
+            const safeUsers = users.map(user => ({
+                id_user: user.id_user,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                devise: user.devise,
+                image: user.image,
+                role: user.role
+            }));
+            
+            res.json(safeUsers);
+        });
     }
 };
 
