@@ -1,4 +1,4 @@
-const { analyzeExpenses, predictNextMonth, recommend } = require('../services/aiService')
+const { analyzeExpenses, predictNextMonth, recommend, enrichBudgetData } = require('../services/aiService')
 const { chatWithGemini } = require('../services/geminiService')
 const Categories = require('../models/categoriesModel')
 const Compte = require('../models/compteModel')
@@ -9,6 +9,8 @@ const Dettes = require('../models/dettesModel')
 const Remboursements = require('../models/remboursementsModel')
 const Abonnements = require('../models/abonnementModel')
 const AlertThresholds = require('../models/alertThresholdsModel')
+const User = require('../models/userModel')
+const db = require('../config/db')
 
 const AiController = {
   insights: async (req, res) => {
@@ -50,15 +52,32 @@ const AiController = {
       if (!id_user) return res.status(401).json({ message: 'Non autorisé' })
       const { message, context } = req.body || {}
 
-      let enriched = ''
-      try {
-        const analysis = await analyzeExpenses(id_user)
-        const avg = Number(analysis?.avgMonthly || 0).toFixed(2)
-        const top = analysis?.topCategories?.[0]?.categorie
-        const topVal = analysis?.topCategories?.[0]?.total
-        const topStr = top ? `${top} (${Number(topVal || 0).toFixed(2)})` : 'n/a'
-        enriched = `Utilisateur ${id_user}: dépense mensuelle moyenne ~${avg}. Catégorie principale: ${topStr}.`
-      } catch (_e) {}
+      // Récupérer la devise de l'utilisateur
+      const userDevise = await new Promise((resolve) => {
+        try {
+          User.findById(id_user, (err, rows) => {
+            if (err || !Array.isArray(rows) || rows.length === 0) return resolve('EUR') // Devise par défaut
+            resolve(rows[0].devise || 'EUR')
+          })
+        } catch (_e) { resolve('EUR') }
+      })
+
+      // Récupérer tous les budgets en premier pour l'analyse
+      const allBudgets = await new Promise((resolve) => {
+        try {
+          Budgets.getAll(id_user, (err, rows) => {
+            if (err || !Array.isArray(rows)) return resolve([])
+            resolve(rows)
+          })
+        } catch (_e) { resolve([]) }
+      })
+
+      // Enrichir les données budgétaires avec analyses
+      const budgetAnalysis = enrichBudgetData(allBudgets)
+
+      // Contexte minimal - seulement la devise, pas de résumé automatique
+      // Les données détaillées sont disponibles dans 'donnees' mais ne doivent pas être partagées sauf si demandé
+      let enriched = `Devise utilisateur: ${userDevise}`
 
       // Grounding: fetch categories from DB to avoid hallucinations
       const categoriesDepenses = await new Promise((resolve) => {
@@ -107,24 +126,21 @@ const AiController = {
         } catch (_e) { resolve([]) }
       })
 
-      const budgets = await new Promise((resolve) => {
-        try {
-          Budgets.getAll(id_user, (err, rows) => {
-            if (err || !Array.isArray(rows)) return resolve([])
-            const now = new Date()
-            const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-            const filtered = rows.filter(b => String(b.mois || '').slice(0,7) === ym)
-            resolve(filtered.map(b => ({
-              mois: b.mois,
-              categorie: b.categorie,
-              max: Number(b.montant_max || 0),
-              restant: Number(b.montant_restant || 0),
-              depense: Number(b.montant_depense || 0),
-              utilisation_pct: Number(b.pourcentage_utilise || 0)
-            })).slice(0, 8))
-          })
-        } catch (_e) { resolve([]) }
-      })
+      // Budgets du mois actuel pour contexte immédiat (allBudgets et budgetAnalysis déjà récupérés plus haut)
+      const now = new Date()
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+      const budgetsCurrentMonth = allBudgets
+        .filter(b => String(b.mois || '').slice(0,7) === currentMonth)
+        .map(b => ({
+          mois: b.mois,
+          categorie: b.categorie,
+          max: Number(b.montant_max || 0),
+          restant: Number(b.montant_restant || 0),
+          depense: Number(b.montant_depense || 0),
+          utilisation_pct: Number(b.pourcentage_utilise || 0),
+          statut: Number(b.pourcentage_utilise || 0) >= 100 ? 'depasse' : 
+                  Number(b.pourcentage_utilise || 0) >= 80 ? 'alerte' : 'normal'
+        }))
 
       const objectifs = await new Promise((resolve) => {
         try {
@@ -179,15 +195,35 @@ const AiController = {
       const facts = {
         regles: [
           "Ne pas inventer de données. Si une information n'existe pas ci-dessous, réponds 'non disponible'.",
-          "Toujours répondre en français, brièvement et utilement.",
-          "Utiliser uniquement les éléments de 'donnees' pour les informations personnelles."
+          "Toujours répondre en français, clairement et de manière utile.",
+          "Utiliser uniquement les éléments de 'donnees' pour les informations personnelles.",
+          "COMPORTEMENT CONVERSATIONNEL CRITIQUE:",
+          "  - NE JAMAIS donner de résumé automatique ou d'aperçu complet au début d'une conversation",
+          "  - Répondre UNIQUEMENT à la question ou demande spécifique de l'utilisateur",
+          "  - Pour une simple salutation ('bonjour', 'salut'), répondre simplement et demander comment aider",
+          "  - Ne partager les données détaillées (budgets, dépenses, alertes) QUE si l'utilisateur les demande explicitement",
+          "  - Être concis et direct, ne pas surcharger l'utilisateur d'informations non demandées",
+          "IMPORTANT: TOUJOURS inclure la devise ('devise_utilisateur') avec CHAQUE montant mentionné dans ta réponse.",
+          "Format des montants: toujours afficher comme 'XXX.XX [DEVISE]' (exemple: '150.50 EUR', '250.75 USD').",
+          "Pour les questions sur les budgets, utiliser les données enrichies dans 'budgets_analysis' qui contient des analyses détaillées.",
+          "Mentionner les budgets dépassés ou en alerte UNIQUEMENT si l'utilisateur demande explicitement cette information.",
+          "Utiliser les tendances pour expliquer l'évolution des dépenses par catégorie SEULEMENT si demandé.",
+          "Formater les réponses de manière claire: utiliser des listes à puces, des paragraphes séparés, et mettre en évidence les montants importants."
         ],
         donnees: {
+          devise_utilisateur: userDevise,
           categories_depenses: categoriesDepenses,
           categories_revenus: categoriesRevenus,
           comptes: comptes,
           transactions_recents: transactionsRecents,
-          budgets: budgets,
+          budgets_mois_actuel: budgetsCurrentMonth,
+          budgets_analysis: {
+            resume: budgetAnalysis.summary,
+            budgets: budgetAnalysis.budgets,
+            alertes: budgetAnalysis.alerts,
+            tendances: budgetAnalysis.trends,
+            top_utilises: budgetAnalysis.top_utilises
+          },
           objectifs: objectifs,
           dettes: dettes,
           remboursements_recents: remboursementsRecents,

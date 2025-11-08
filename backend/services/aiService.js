@@ -126,6 +126,116 @@ async function recommend(userId) {
   return { recommendations: recs, analysis }
 }
 
-module.exports = { analyzeExpenses, predictNextMonth, recommend }
+// Fonction pour enrichir les données budgétaires avec des analyses détaillées
+function enrichBudgetData(budgets, expenses = []) {
+  if (!Array.isArray(budgets) || budgets.length === 0) {
+    return {
+      budgets: [],
+      summary: {
+        total_budgets: 0,
+        total_alloue: 0,
+        total_depense: 0,
+        total_restant: 0,
+        utilisation_moyenne: 0
+      },
+      alerts: [],
+      trends: []
+    }
+  }
+
+  // Calculer les totaux
+  const totalAlloue = budgets.reduce((sum, b) => sum + Number(b.montant_max || 0), 0)
+  const totalDepense = budgets.reduce((sum, b) => sum + Number(b.montant_depense || 0), 0)
+  const totalRestant = budgets.reduce((sum, b) => sum + Number(b.montant_restant || 0), 0)
+  const utilisationMoyenne = budgets.length > 0
+    ? budgets.reduce((sum, b) => sum + Number(b.pourcentage_utilise || 0), 0) / budgets.length
+    : 0
+
+  // Détecter les alertes (budgets dépassés ou proches de la limite)
+  const alerts = budgets
+    .filter(b => {
+      const pourcentage = Number(b.pourcentage_utilise || 0)
+      return pourcentage >= 100 || (pourcentage >= 80 && pourcentage < 100)
+    })
+    .map(b => ({
+      categorie: b.categorie,
+      mois: b.mois,
+      type: Number(b.pourcentage_utilise || 0) >= 100 ? 'depasse' : 'alerte',
+      pourcentage: Number(b.pourcentage_utilise || 0),
+      depense: Number(b.montant_depense || 0),
+      max: Number(b.montant_max || 0),
+      restant: Number(b.montant_restant || 0)
+    }))
+
+  // Analyser les tendances par catégorie
+  const categoryTrends = {}
+  budgets.forEach(b => {
+    if (!categoryTrends[b.categorie]) {
+      categoryTrends[b.categorie] = []
+    }
+    categoryTrends[b.categorie].push({
+      mois: b.mois,
+      depense: Number(b.montant_depense || 0),
+      max: Number(b.montant_max || 0),
+      pourcentage: Number(b.pourcentage_utilise || 0)
+    })
+  })
+
+  const trends = Object.entries(categoryTrends)
+    .map(([categorie, data]) => {
+      if (data.length < 2) return null
+      const sorted = data.sort((a, b) => a.mois.localeCompare(b.mois))
+      const last = sorted[sorted.length - 1]
+      const prev = sorted[sorted.length - 2]
+      const evolution = last.pourcentage - prev.pourcentage
+      return {
+        categorie,
+        evolution: evolution > 0 ? 'augmentation' : evolution < 0 ? 'diminution' : 'stable',
+        valeur_evolution: Math.abs(evolution),
+        dernier_mois: last.mois,
+        dernier_pourcentage: last.pourcentage
+      }
+    })
+    .filter(Boolean)
+
+  // Top budgets les plus utilisés
+  const topUtilises = [...budgets]
+    .sort((a, b) => Number(b.pourcentage_utilise || 0) - Number(a.pourcentage_utilise || 0))
+    .slice(0, 5)
+    .map(b => ({
+      categorie: b.categorie,
+      mois: b.mois,
+      pourcentage: Number(b.pourcentage_utilise || 0),
+      depense: Number(b.montant_depense || 0),
+      max: Number(b.montant_max || 0)
+    }))
+
+  return {
+    budgets: budgets.map(b => ({
+      id: b.id_budget,
+      categorie: b.categorie,
+      mois: b.mois,
+      montant_max: Number(b.montant_max || 0),
+      montant_depense: Number(b.montant_depense || 0),
+      montant_restant: Number(b.montant_restant || 0),
+      pourcentage_utilise: Number(b.pourcentage_utilise || 0),
+      statut: Number(b.pourcentage_utilise || 0) >= 100 ? 'depasse' : 
+              Number(b.pourcentage_utilise || 0) >= 80 ? 'alerte' : 'normal'
+    })),
+    summary: {
+      total_budgets: budgets.length,
+      total_alloue: totalAlloue,
+      total_depense: totalDepense,
+      total_restant: totalRestant,
+      utilisation_moyenne: Math.round(utilisationMoyenne * 100) / 100,
+      budget_moyen: budgets.length > 0 ? totalAlloue / budgets.length : 0
+    },
+    alerts,
+    trends,
+    top_utilises: topUtilises
+  }
+}
+
+module.exports = { analyzeExpenses, predictNextMonth, recommend, enrichBudgetData }
 
 

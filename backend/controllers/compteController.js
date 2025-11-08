@@ -85,7 +85,20 @@ const compteController = {
         `;
         
         db.query(sql, [id_user], (err, rows) => {
-            if (err) return res.status(500).json({ error: err });
+            if (err) {
+                console.error('Erreur lors de la récupération des comptes:', err);
+                
+                // Détecter si la table est corrompue
+                if (err.code === 'ER_CRASHED_ON_USAGE' || err.errno === 1194) {
+                    return res.status(500).json({ 
+                        error: err,
+                        message: 'La table Comptes est corrompue et doit être réparée.',
+                        fix: 'Exécutez le script repair-table.js ou la commande SQL: REPAIR TABLE Comptes;'
+                    });
+                }
+                
+                return res.status(500).json({ error: err });
+            }
             res.json(rows);
         });
     },
