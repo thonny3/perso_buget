@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import AnimatedSidebar from './AnimatedSidebar';
 
 const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLogout }) => {
@@ -20,7 +20,7 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
     {
       id: 'portefeuille',
       label: 'Portefeuille',
-      icon: 'wallet',
+      icon: 'credit-card',
       description: 'Mon portefeuille'
     },
     {
@@ -44,13 +44,13 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
     {
       id: 'transactions',
       label: 'Transactions',
-      icon: 'arrow-left-right',
+      icon: 'list',
       description: 'Toutes les transactions'
     },
     {
       id: 'transferts',
       label: 'Transferts',
-      icon: 'arrow-left-right',
+      icon: 'repeat',
       description: 'Mouvements entre comptes/objectifs'
     },
     {

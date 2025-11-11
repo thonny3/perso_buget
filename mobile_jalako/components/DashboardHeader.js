@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import AntDesign from 'react-native-vector-icons/AntDesign';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 
 const { width: screenWidth } = Dimensions.get('window');
 

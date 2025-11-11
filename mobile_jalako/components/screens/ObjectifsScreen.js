@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { objectifsService, contributionsService, accountService, dettesService } from '../../services/apiService';
 
 const ObjectifsScreen = ({ onBack, onRefreshCallback, navigation }) => {
@@ -207,16 +207,7 @@ const ObjectifsScreen = ({ onBack, onRefreshCallback, navigation }) => {
           <Feather name="arrow-left" size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.title}>Mes Objectifs</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => {
-            if (navigation?.navigate) {
-              navigation.navigate('AddFormScreen');
-            }
-          }}
-        >
-          <Feather name="plus" size={20} color="#fff" />
-        </TouchableOpacity>
+       
       </View>
 
       {/* Cartes Statistiques */}
@@ -495,7 +486,7 @@ const ObjectifsScreen = ({ onBack, onRefreshCallback, navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f0f9ff' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   backButton: { padding: 8, borderRadius: 8, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
   title: { fontSize: 22, fontWeight: '800', color: '#1e293b' },
   addButton: { backgroundColor: '#3b82f6', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

@@ -12,7 +12,7 @@ import {
   RefreshControl,
   Dimensions 
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { depensesService, categoryService, accountService } from '../../services/apiService';
 import EditDepenseFormScreen from '../EditDepenseFormScreen';
 
@@ -406,15 +406,7 @@ const DepensesScreen = ({ onBack, onRefreshCallback }) => {
                 <Text style={styles.subtitle}>Gérez et analysez vos dépenses quotidiennes</Text>
               </View>
             </View>
-          <TouchableOpacity 
-            style={styles.addButton}
-              onPress={() => {
-                setSelectedDepense(null);
-                setIsFormOpen(true);
-              }}
-          >
-              <Feather name="plus" size={20} color="#fff" />
-          </TouchableOpacity>
+         
           </View>
         </View>
         </View>

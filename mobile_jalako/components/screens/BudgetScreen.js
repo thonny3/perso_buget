@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert, RefreshControl, Modal, TextInput } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { budgetService, categoryService } from '../../services/apiService';
 
 const { width } = Dimensions.get('window');
@@ -321,12 +321,7 @@ const BudgetScreen = ({ onBack, onRefreshCallback, navigation }) => {
                 <Text style={styles.subtitle}>Suivez vos dépenses - {formatMonthDisplay(selectedMonth)}</Text>
               </View>
             </View>
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={openAddModal}
-            >
-              <Feather name="plus" size={20} color="#fff" />
-            </TouchableOpacity>
+           
           </View>
         </View>
       </View>
@@ -436,9 +431,6 @@ const BudgetScreen = ({ onBack, onRefreshCallback, navigation }) => {
                   {/* En-tête de la carte */}
                   <View style={styles.budgetHeader}>
                     <View style={styles.budgetLeft}>
-                      <View style={[styles.budgetIcon, { backgroundColor: getProgressBarColor(budget.pourcentage_utilise) }]}>
-                        <Feather name="pie-chart" size={20} color="#fff" />
-                      </View>
                       <View style={styles.budgetInfo}>
                         <Text style={styles.budgetNom}>{budget.categorie || 'Sans nom'}</Text>
                         <Text style={styles.budgetPeriod}>{formatMonthDisplay(budget.mois)}</Text>

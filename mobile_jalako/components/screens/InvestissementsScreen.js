@@ -10,7 +10,7 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import InvestissementReportModal from '../InvestissementReportModal';
 import { investissementsService } from '../../services/apiService';
 import InvestissementActionScreen from '../InvestissementActionScreen';

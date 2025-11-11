@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { accountService, investissementsService } from '../services/apiService';
 
 const InvestissementActionScreen = ({ visible, onClose, investissement, onSuccess, onDelete }) => {

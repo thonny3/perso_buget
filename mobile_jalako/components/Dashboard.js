@@ -16,8 +16,6 @@ import RevenusScreen from './screens/RevenusScreen';
 import InvestissementsScreen from './screens/InvestissementsScreen';
 import DettesScreen from './screens/DettesScreen';
 import AnimatedScreen from './AnimatedScreen';
-import ConnectionDebugger from './ConnectionDebugger';
-import LogViewer from './LogViewer';
 import BottomNavigation from './BottomNavigation';
 import AddFormScreen from './AddFormScreen';
 import EditFormScreen from './EditFormScreen';
@@ -26,15 +24,15 @@ import ContributionsScreen from './ContributionsScreen';
 import NotificationScreen from './NotificationScreen';
 import ProfileScreen from './ProfileScreen';
 import { dashboardService, authService } from '../services/apiService';
+import { Feather } from '@expo/vector-icons';
 
 const Dashboard = ({ onLogout }) => {
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [debugVisible, setDebugVisible] = useState(false);
-  const [logsVisible, setLogsVisible] = useState(false);
   const [addFormVisible, setAddFormVisible] = useState(false);
+  const [chatVisible, setChatVisible] = useState(false);
   const [editFormVisible, setEditFormVisible] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
   const [editFormMode, setEditFormMode] = useState(null); // 'revenu' | 'budget'
@@ -229,6 +227,8 @@ const Dashboard = ({ onLogout }) => {
         return 'home';
       case 'budget':
         return 'budget';
+      case 'ia':
+        return 'chat';
       case 'alertes':
         return 'notifications';
       case 'profile':
@@ -361,34 +361,7 @@ const Dashboard = ({ onLogout }) => {
         onLogout={handleLogout}
       />
 
-      {/* Boutons de debug (visible seulement en développement) */}
-      {__DEV__ && (
-        <View style={styles.debugButtons}>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={() => setDebugVisible(true)}
-          >
-            <Text style={styles.debugButtonText}>🔧 Debug</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.debugButton, { backgroundColor: '#3b82f6' }]}
-            onPress={() => setLogsVisible(true)}
-          >
-            <Text style={styles.debugButtonText}>📋 Logs</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <ConnectionDebugger
-        visible={debugVisible}
-        onClose={() => setDebugVisible(false)}
-      />
-
-      <LogViewer
-        visible={logsVisible}
-        onClose={() => setLogsVisible(false)}
-      />
+      
 
       {/* Add Form Screen */}
       <AddFormScreen
@@ -435,6 +408,32 @@ const Dashboard = ({ onLogout }) => {
       )}
 
 
+      {/* Bouton flottant Chatbot */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={styles.chatFab}
+        onPress={() => setChatVisible(true)}
+      >
+        <Feather name="message-circle" size={22} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Panneau/Modal Chatbot */}
+      {chatVisible && (
+        <View style={styles.chatContainer}>
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatTitle}>Assistant IA</Text>
+            <TouchableOpacity onPress={() => setChatVisible(false)} style={styles.chatClose}>
+              <Feather name="x" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.chatBody}>
+            <Text style={styles.chatHint}>
+              Démarrez une conversation: "Analyse mes dépenses", "Prévois mon budget", ...
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Bottom Navigation */}
       <BottomNavigation
         activeTab={getActiveTabForCurrentScreen()}
@@ -449,35 +448,71 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
+  chatFab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 90,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 20,
+  },
+  chatContainer: {
+    position: 'absolute',
+    right: 16,
+    bottom: 160,
+    left: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 30,
+  },
+  chatHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  chatTitle: {
+    color: '#111827',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  chatClose: {
+    padding: 6,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+  },
+  chatBody: {
+    padding: 16,
+  },
+  chatHint: {
+    color: '#6b7280',
+    fontSize: 14,
+  },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 20,
-  },
-  debugButtons: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  debugButton: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });
 

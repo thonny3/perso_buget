@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert, RefreshControl, Image } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { revenuesService, accountService } from '../../services/apiService';
 
 const RevenusScreen = ({ onBack, onRefreshCallback, navigation }) => {
@@ -361,12 +361,7 @@ const RevenusScreen = ({ onBack, onRefreshCallback, navigation }) => {
             <Text style={styles.title}>Mes Revenus</Text>
             <Text style={styles.subtitle}>Suivez vos sources de revenus</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.addRevenueButton}
-            onPress={() => setShowAddModal(true)}
-          >
-            <Feather name="plus" size={20} color="#fff" />
-          </TouchableOpacity>
+          
         </View>
       </View>
 

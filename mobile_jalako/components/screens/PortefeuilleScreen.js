@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Modal, TextInput } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { accountService, authService, sharedAccountsService } from '../../services/apiService';
 
 const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
@@ -469,12 +469,7 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                 <Text style={styles.subtitle}>Gérez vos comptes bancaires et financiers</Text>
               </View>
             </View>
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={openAddModal}
-            >
-              <Feather name="plus" size={20} color="#fff" />
-            </TouchableOpacity>
+          
           </View>
         </View>
       </View>
@@ -550,9 +545,6 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                 {/* En-tête de la carte */}
                 <View style={styles.compteHeader}>
                   <View style={styles.compteLeft}>
-                    <View style={[styles.compteIcon, { backgroundColor: compte.couleur }]}>
-                      <Feather name="wallet" size={20} color="#fff" />
-                    </View>
                     <View style={styles.compteInfo}>
                       <Text style={styles.compteNom}>{compte.nom}</Text>
                       <View style={styles.compteTypeContainer}>
@@ -742,9 +734,6 @@ const PortefeuilleScreen = ({ onBack, onRefreshCallback }) => {
                 {/* En-tête de la carte */}
                 <View style={styles.compteHeader}>
                   <View style={styles.compteLeft}>
-                    <View style={[styles.compteIcon, { backgroundColor: compte.couleur }]}>
-                      <Feather name="wallet" size={20} color="#fff" />
-                    </View>
                     <View style={styles.compteInfo}>
                       <Text style={styles.compteNom}>{compte.nom}</Text>
                       <View style={styles.compteTypeContainer}>

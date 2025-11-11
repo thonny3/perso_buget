@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, Animated, TouchableOpacity } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 import { dashboardService, authService } from '../services/apiService';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -94,7 +94,7 @@ const DashboardCharts = () => {
       );
     }
 
-    const chartData = dashboardData.revenueData.slice(-6); // 6 derniers mois
+    const chartData = dashboardData.revenueData.slice(-4); // 4 derniers mois
     const maxValue = Math.max(
       ...chartData.map(d => Math.max(d.revenue || 0, d.expenses || 0))
     );
@@ -147,94 +147,134 @@ const DashboardCharts = () => {
             ))}
           </View>
           
-          {/* Graphique en barres avec animations */}
-          <View style={styles.barChart}>
-            {chartData.map((data, index) => {
-              const revenueHeight = ((data.revenue || 0) / maxValue) * 100;
-              const expenseHeight = ((data.expenses || 0) / maxValue) * 100;
-              const isSelected = selectedMonth === index;
+          {/* Graphique en lignes (courbes) */}
+          <View style={styles.lineChart}>
+            {(() => {
+              const innerPadding = 16;
+              const chartHeight = 280;
+              const usableWidth = screenWidth - (20 * 2) - (24 * 2) - (innerPadding * 2);
+              const stepX = chartData.length > 1 ? usableWidth / (chartData.length - 1) : 0;
+              const baseLeft = innerPadding;
+              const baseBottom = 0;
+              
+              const revenuePoints = chartData.map((d, i) => {
+                const x = baseLeft + i * stepX;
+                const yPct = ((d.revenue || 0) / (maxValue || 1)) * 100;
+                const y = (chartHeight * (yPct / 100));
+                return { x, y };
+              });
+              
+              const expensePoints = chartData.map((d, i) => {
+                const x = baseLeft + i * stepX;
+                const yPct = ((d.expenses || 0) / (maxValue || 1)) * 100;
+                const y = (chartHeight * (yPct / 100));
+                return { x, y };
+              });
+              
+              const renderSegments = (points, color) => {
+                const segments = [];
+                for (let i = 0; i < points.length - 1; i++) {
+                  const p1 = points[i];
+                  const p2 = points[i + 1];
+                  const dx = p2.x - p1.x;
+                  const dy = p2.y - p1.y;
+                  const length = Math.sqrt(dx * dx + dy * dy);
+                  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                  segments.push(
+                    <Animated.View
+                      key={`seg-${color}-${i}`}
+                      style={[
+                        styles.lineSegment,
+                        {
+                          width: length,
+                          left: p1.x,
+                          bottom: baseBottom + p1.y,
+                          backgroundColor: color,
+                          transform: [
+                            { rotateZ: `${angle}deg` },
+                            { scaleX: animatedValues.chartOpacity }
+                          ],
+                          opacity: animatedValues.chartOpacity
+                        }
+                      ]}
+                    />
+                  );
+                }
+                return segments;
+              };
+              
+              const renderDots = (points, color, seriesKey) => {
+                return points.map((p, i) => (
+                  <Animated.View
+                    key={`dot-${seriesKey}-${i}`}
+                    style={[
+                      styles.lineDot,
+                      {
+                        left: p.x - 4,
+                        bottom: baseBottom + p.y - 4,
+                        borderColor: color,
+                        opacity: animatedValues.chartOpacity
+                      }
+                    ]}
+                  />
+                ));
+              };
+              
+              const renderAreaFill = (points, color, seriesKey) => {
+                const strips = [];
+                const samplesPerSegment = 8;
+                for (let i = 0; i < points.length - 1; i++) {
+                  const p1 = points[i];
+                  const p2 = points[i + 1];
+                  for (let s = 0; s <= samplesPerSegment; s++) {
+                    const t = s / samplesPerSegment;
+                    const x = p1.x + (p2.x - p1.x) * t;
+                    const y = p1.y + (p2.y - p1.y) * t;
+                    strips.push(
+                      <Animated.View
+                        key={`fill-${seriesKey}-${i}-${s}`}
+                        style={[
+                          styles.lineFillStrip,
+                          {
+                            left: x,
+                            bottom: baseBottom,
+                            height: y,
+                            backgroundColor: color,
+                            opacity: animatedValues.chartOpacity.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 0.15],
+                            })
+                          }
+                        ]}
+                      />
+                    );
+                  }
+                }
+                return strips;
+              };
               
               return (
-                <TouchableOpacity 
-                  key={index} 
-                  style={styles.barContainer}
-                  onPress={() => setSelectedMonth(isSelected ? null : index)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.barLabels}>
-                    <Text style={[styles.barLabel, isSelected && styles.selectedBarLabel]}>
-                      {getMonthName(data.month)}
-                    </Text>
+                <>
+                  {/* Zones remplies */}
+                  {renderAreaFill(revenuePoints, '#10b981', 'rev')}
+                  {renderAreaFill(expensePoints, '#ef4444', 'exp')}
+                  {/* Lignes */}
+                  {renderSegments(revenuePoints, '#10b981')}
+                  {renderSegments(expensePoints, '#ef4444')}
+                  {/* Points */}
+                  {renderDots(revenuePoints, '#10b981', 'rev')}
+                  {renderDots(expensePoints, '#ef4444', 'exp')}
+                  {/* Labels mois */}
+                  <View style={styles.lineLabels}>
+                    {chartData.map((d, i) => (
+                      <Text key={`lbl-${i}`} style={styles.barLabel}>
+                        {getMonthName(d.month)}
+                      </Text>
+                    ))}
                   </View>
-                  
-                  <View style={styles.bars}>
-                    {/* Barre des revenus */}
-                    <View style={styles.barGroup}>
-                      <Animated.View 
-                        style={[
-                          styles.bar, 
-                          styles.revenueBar, 
-                          { 
-                            height: animatedValues.revenueBar.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, revenueHeight],
-                            }),
-                            transform: [
-                              { scaleY: animatedValues.revenueBar },
-                              { scaleX: isSelected ? 1.1 : 1 }
-                            ],
-                            shadowOpacity: isSelected ? 0.3 : 0.15,
-                          }
-                        ]} 
-                      />
-                      <Animated.View
-                        style={[
-                          styles.barValueContainer,
-                          {
-                            opacity: animatedValues.revenueBar,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.barValue}>{formatCurrency(data.revenue)}</Text>
-                        <View style={[styles.barIndicator, { backgroundColor: '#10b981' }]} />
-                      </Animated.View>
-                    </View>
-                    
-                    {/* Barre des dépenses */}
-                    <View style={styles.barGroup}>
-                      <Animated.View 
-                        style={[
-                          styles.bar, 
-                          styles.expenseBar, 
-                          { 
-                            height: animatedValues.expenseBar.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, expenseHeight],
-                            }),
-                            transform: [
-                              { scaleY: animatedValues.expenseBar },
-                              { scaleX: isSelected ? 1.1 : 1 }
-                            ],
-                            shadowOpacity: isSelected ? 0.3 : 0.15,
-                          }
-                        ]} 
-                      />
-                      <Animated.View
-                        style={[
-                          styles.barValueContainer,
-                          {
-                            opacity: animatedValues.expenseBar,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.barValue}>{formatCurrency(data.expenses)}</Text>
-                        <View style={[styles.barIndicator, { backgroundColor: '#ef4444' }]} />
-                      </Animated.View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                </>
               );
-            })}
+            })()}
           </View>
         </View>
 
@@ -457,6 +497,40 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     height: '100%',
     paddingHorizontal: 8,
+  },
+  lineChart: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
+  },
+  lineSegment: {
+    position: 'absolute',
+    height: 2,
+    borderRadius: 1,
+  },
+  lineDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+  },
+  lineLabels: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: -20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  lineFillStrip: {
+    position: 'absolute',
+    width: 2,
+    borderTopLeftRadius: 1,
+    borderTopRightRadius: 1,
   },
   barContainer: {
     flex: 1,
