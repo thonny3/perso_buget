@@ -147,7 +147,8 @@ const Abonnements = {
                                 return db.query(sqlBase, [nextStr, id_abonnement], (e4b) => {
                                     if (e4b) return db.rollback(() => callback(e4b));
                                     // Enregistrer une dépense pour l'abonnement afin d'apparaître dans Transactions
-                                    const desc = `${abo.nom || 'Abonnement'}`;
+                                    const freqLabel = abo['fréquence'] || abo.frequence || 'Mensuel';
+                                    const desc = `Renouvellement abonnement - ${abo.nom || 'Abonnement'} (${freqLabel})`;
                                     const insertDepenseSql = `
                                       INSERT INTO Depenses (id_user, montant, date_depense, description, id_categorie_depense, id_compte)
                                       VALUES (?, ?, NOW(), ?, (SELECT id FROM categories_depenses WHERE nom='Abonnements' LIMIT 1), ?)
@@ -214,7 +215,8 @@ const Abonnements = {
                             if (e4) return db.rollback(() => callback(e4));
 
                             // Enregistrer une dépense pour l'abonnement afin d'apparaître dans Transactions
-                            const desc = `${abo.nom || 'Abonnement'}`;
+                            const freqLabel = abo['fréquence'] || abo.frequence || 'Mensuel';
+                            const desc = `Renouvellement abonnement - ${abo.nom || 'Abonnement'} (${freqLabel})`;
                             const insertDepenseSql = `
                               INSERT INTO Depenses (id_user, montant, date_depense, description, id_categorie_depense, id_compte)
                               VALUES (?, ?, NOW(), ?, (SELECT id FROM categories_depenses WHERE nom='Abonnements' LIMIT 1), ?)

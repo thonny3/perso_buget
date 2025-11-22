@@ -21,6 +21,7 @@ const dettesRoutes = require('./routes/dettesRoutes');
 const investissementsRoutes = require('./routes/investissementsRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const { scheduleAutoRenewals } = require('./services/autoRenewalJob');
 
 
 
@@ -129,32 +130,7 @@ io.on('connection', (socket) => {
 const PORT = 3002;
 server.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://0.0.0.0:${PORT}`));
 
-// Tâche simple d'auto-renouvellement quotidien (toutes les 24h)
-try {
-  const db = app.get('db');
-  const runAutoRenew = () => {
-    const sql = `
-      SELECT a.id_abonnement, a.id_user, a.prochaine_echeance, a.id_compte
-      FROM Abonnements a
-      WHERE (a.auto_renouvellement = 1 OR a.auto_renouvellement = TRUE)
-        AND (a.actif IS NULL OR a.actif = 1)
-        AND a.prochaine_echeance < CURDATE()
-    `;
-    db.query(sql, [], (err, rows) => {
-      if (err) return;
-      if (!Array.isArray(rows) || rows.length === 0) return;
-      const Abonnements = require('./models/abonnementModel');
-      rows.forEach((abo) => {
-        Abonnements.renew(abo.id_user, { id_abonnement: abo.id_abonnement, id_compte: abo.id_compte }, () => {});
-      });
-    });
-  };
-  // Exécuter au démarrage et ensuite toutes les 24h
-  runAutoRenew();
-  setInterval(runAutoRenew, 24 * 60 * 60 * 1000);
-} catch (_e) {
-  // ignore scheduler errors
-}
+scheduleAutoRenewals();
 
 // Tâche quotidienne d'alertes email: J-10, J-3, J-1, et retard (quotidien)
 try {

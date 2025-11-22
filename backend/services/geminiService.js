@@ -1,4 +1,98 @@
 const https = require('https')
+const crypto = require('crypto')
+
+const MAX_CONCURRENT = Math.max(1, Number(process.env.GEMINI_MAX_CONCURRENCY || 2))
+const MAX_RETRIES = Math.max(0, Number(process.env.GEMINI_MAX_RETRIES || 2))
+const RETRY_BASE_DELAY_MS = Math.max(200, Number(process.env.GEMINI_RETRY_DELAY_MS || 500))
+const CACHE_TTL_MS = Math.max(0, Number(process.env.GEMINI_CACHE_TTL_MS || 30000))
+
+let activeRequests = 0
+const pendingQueue = []
+const responseCache = new Map()
+
+function drainQueue() {
+  while (activeRequests < MAX_CONCURRENT && pendingQueue.length > 0) {
+    const next = pendingQueue.shift()
+    if (typeof next === 'function') next()
+  }
+}
+
+function scheduleTask(task) {
+  return new Promise((resolve, reject) => {
+    const run = async () => {
+      activeRequests++
+      try {
+        const result = await task()
+        resolve(result)
+      } catch (err) {
+        reject(err)
+      } finally {
+        activeRequests--
+        process.nextTick(drainQueue)
+      }
+    }
+    pendingQueue.push(run)
+    process.nextTick(drainQueue)
+  })
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function isRetriableError(err) {
+  const message = String(err?.message || err || '').toLowerCase()
+  if (!message) return false
+  return (
+    message.includes('503') ||
+    message.includes('429') ||
+    message.includes('timeout') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('overloaded')
+  )
+}
+
+async function callWithRetry(fn) {
+  let attempt = 0
+  let delay = RETRY_BASE_DELAY_MS
+  while (true) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (attempt >= MAX_RETRIES || !isRetriableError(err)) {
+        throw err
+      }
+      await wait(delay)
+      attempt++
+      delay *= 2
+    }
+  }
+}
+
+function makeCacheKey(message, context) {
+  if (CACHE_TTL_MS === 0) return null
+  const hash = crypto.createHash('sha1')
+  hash.update(String(message || ''))
+  hash.update('::')
+  hash.update(String(context || ''))
+  return hash.digest('hex')
+}
+
+function getCachedResponse(key) {
+  if (!key) return null
+  const entry = responseCache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    responseCache.delete(key)
+    return null
+  }
+  return entry.value
+}
+
+function setCachedResponse(key, value) {
+  if (!key || CACHE_TTL_MS === 0) return
+  responseCache.set(key, { value, timestamp: Date.now() })
+}
 
 function postJson(urlString, jsonBody) {
   return new Promise((resolve, reject) => {
@@ -148,7 +242,7 @@ RÈGLES IMPORTANTES:
   }
 }
 
-async function chatWithGemini(message, context) {
+async function executeGeminiCall(message, context) {
   if (!message || !String(message).trim()) {
     throw new Error('Message requis')
   }
@@ -182,7 +276,7 @@ async function chatWithGemini(message, context) {
   for (const endpoint of candidates) {
     const url = `${endpoint}?key=${encodeURIComponent(apiKey)}`
     try {
-      data = await postJson(url, body)
+      data = await callWithRetry(() => postJson(url, body))
       usedUrl = endpoint
       break
     } catch (e) {
@@ -227,7 +321,7 @@ async function chatWithGemini(message, context) {
         const pick = preferred.name.includes('/v1/') ? 'v1' : 'v1beta'
         const finalUrl = `https://generativelanguage.googleapis.com/${pick}/models/${endpoint}:generateContent?key=${encodeURIComponent(apiKey)}`
         try {
-          data = await postJson(finalUrl, body)
+          data = await callWithRetry(() => postJson(finalUrl, body))
           usedUrl = preferred.name
         } catch (e) {
           lastErr = e
@@ -262,7 +356,7 @@ async function chatWithGemini(message, context) {
       // Try again on the last successful or first candidate endpoint
       const endpointToUse = usedUrl || (Array.isArray(tried) && tried.length > 0 ? tried[0] : '')
       const url = `${endpointToUse}?key=${encodeURIComponent(apiKey)}`
-      const again = endpointToUse ? await postJson(url, smaller) : null
+      const again = endpointToUse ? await callWithRetry(() => postJson(url, smaller)) : null
       if (again) {
         const parts2 = again?.candidates?.[0]?.content?.parts
         if (Array.isArray(parts2) && parts2.length > 0) {
@@ -280,6 +374,19 @@ async function chatWithGemini(message, context) {
     return { text: '', raw: data, model: baseModel, apiUrl: usedUrl, meta: { blockReason: block } }
   }
   return { text, raw: data, model: baseModel, apiUrl: usedUrl }
+}
+
+async function chatWithGemini(message, context) {
+  const cacheKey = makeCacheKey(message, context)
+  const cached = getCachedResponse(cacheKey)
+  if (cached) {
+    return Object.assign({}, cached, { meta: Object.assign({}, cached.meta, { fromCache: true }) })
+  }
+  const result = await scheduleTask(() => executeGeminiCall(message, context))
+  if (result?.text) {
+    setCachedResponse(cacheKey, result)
+  }
+  return result
 }
 
 module.exports = { chatWithGemini }

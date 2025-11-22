@@ -1,4 +1,10 @@
-const { analyzeExpenses, predictNextMonth, recommend, enrichBudgetData } = require('../services/aiService')
+const {
+  analyzeExpenses,
+  predictNextMonth,
+  recommend,
+  enrichBudgetData,
+  analyzeRevenuesDetailed
+} = require('../services/aiService')
 const { chatWithGemini } = require('../services/geminiService')
 const Categories = require('../models/categoriesModel')
 const Compte = require('../models/compteModel')
@@ -11,6 +17,185 @@ const Abonnements = require('../models/abonnementModel')
 const AlertThresholds = require('../models/alertThresholdsModel')
 const User = require('../models/userModel')
 const db = require('../config/db')
+
+const formatterCache = new Map()
+
+function formatCurrency(value, currency = 'EUR') {
+  const numericValue = Number(value) || 0
+  const formatterKey = `fr-FR-${currency}`
+  if (!formatterCache.has(formatterKey)) {
+    formatterCache.set(formatterKey, new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }))
+  }
+  const formatter = formatterCache.get(formatterKey)
+  return `${formatter.format(numericValue)} ${currency}`
+}
+
+function parseMonth(value) {
+  if (!value) return null
+  const stringValue = String(value).trim()
+  let date = new Date(stringValue)
+  if (Number.isNaN(date.getTime()) && /^\d{4}-\d{2}$/.test(stringValue)) {
+    date = new Date(`${stringValue}-01`)
+  }
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function addMonths(date, months) {
+  if (!date) return null
+  const clone = new Date(date.getTime())
+  clone.setMonth(clone.getMonth() + months)
+  return clone
+}
+
+function formatMonthLabel(date) {
+  if (!date) return ''
+  return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+}
+
+function normalizeText(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function detectCategoryFromMessage(message, budgets = []) {
+  if (!message || !Array.isArray(budgets)) return null
+  const normalizedMessage = normalizeText(message)
+  const match = budgets.find(b => {
+    const label = normalizeText(b.categorie)
+    return label && normalizedMessage.includes(label)
+  })
+  return match ? match.categorie : null
+}
+
+function buildCategoryHistory(allBudgets = [], category) {
+  if (!category) return []
+  return allBudgets
+    .filter(b => normalizeText(b.categorie) === normalizeText(category))
+    .map(b => ({
+      mois: b.mois,
+      montant_max: Number(b.montant_max || b.montantMax || 0),
+      montant_depense: Number(b.montant_depense || b.depense || 0),
+      montant_restant: Number(b.montant_restant || b.restant || 0),
+      pourcentage_utilise: Number(b.pourcentage_utilise || b.pourcentage || 0)
+    }))
+    .sort((a, b) => String(a.mois || '').localeCompare(String(b.mois || '')))
+}
+
+function buildCategoryForecastMessage(category, history, currency) {
+  if (!category || history.length === 0) return null
+  const lastEntry = history[history.length - 1]
+  const previousEntry = history.length > 1 ? history[history.length - 2] : null
+  const avgSpend = history.reduce((sum, h) => sum + (h.montant_depense || 0), 0) / history.length
+  const monthReference = parseMonth(lastEntry.mois) || new Date()
+  const nextMonthLabel = formatMonthLabel(addMonths(monthReference, 1)) || 'Prochain mois'
+  const lastSpend = Number(lastEntry.montant_depense || 0)
+  const trendRatio = previousEntry && previousEntry.montant_depense
+    ? Math.max(-0.15, Math.min(0.2, (lastSpend - previousEntry.montant_depense) / Math.max(previousEntry.montant_depense, 1)))
+    : 0
+  const projectedSpend = Math.max(0, (avgSpend || lastSpend) * (1 + trendRatio * 0.5) || lastSpend * 1.02)
+  const recommendedBudget = Math.max(lastEntry.montant_max || projectedSpend, projectedSpend * 1.05)
+  const reserve = Math.max(recommendedBudget - projectedSpend, 0)
+  const reserveRatio = recommendedBudget > 0 ? reserve / recommendedBudget : 0
+  const status =
+    reserveRatio < 0.05 ? 'surveillance élevée' :
+    reserveRatio < 0.12 ? 'vigilance modérée' :
+    'normal'
+
+  const lines = [
+    `Prévision ${category} — ${nextMonthLabel}`,
+    `Budget recommandé : ${formatCurrency(recommendedBudget, currency)}`,
+    `Dépenses projetées : ${formatCurrency(projectedSpend, currency)}`,
+    `Réserve de sécurité : ${formatCurrency(reserve, currency)}`,
+    '',
+    `Statut anticipé : ${status}.`
+  ]
+
+  return lines.join('\n')
+}
+
+function messageTargetsRevenues(message) {
+  const normalized = normalizeText(message || '')
+  if (!normalized) return false
+  const revenueKeywords = ['revenu', 'income', 'salaire', 'paie', 'gains', 'recette']
+  return revenueKeywords.some(keyword => normalized.includes(keyword))
+}
+
+function buildRevenueFallback(revenueAnalysis, currency) {
+  if (!revenueAnalysis || !Array.isArray(revenueAnalysis.byMonth) || revenueAnalysis.byMonth.length === 0) {
+    return null
+  }
+  const monthly = revenueAnalysis.byMonth
+  const lastMonth = monthly[monthly.length - 1]
+  const now = new Date()
+  const currentKey = now.toISOString().slice(0, 7)
+  const currentMonthEntry = monthly.find(item => item.period === currentKey)
+  const currentLabel = formatMonthLabel(now)
+  const currentValue = currentMonthEntry ? currentMonthEntry.total : 0
+  const baseDate = parseMonth(lastMonth.period) || new Date()
+  const nextLabel = formatMonthLabel(addMonths(baseDate, 1)) || 'Prochain mois'
+  const projected = Math.max(0, revenueAnalysis.forecast?.prediction || lastMonth.total || 0)
+  const variation = lastMonth.total > 0
+    ? ((projected - lastMonth.total) / lastMonth.total) * 100
+    : 0
+  const mainSource = revenueAnalysis.topSources && revenueAnalysis.topSources.length
+    ? `${revenueAnalysis.topSources[0].label} (${formatCurrency(revenueAnalysis.topSources[0].amount, currency)})`
+    : 'Non déterminée'
+  const recommendation = revenueAnalysis.recommendations && revenueAnalysis.recommendations.length
+    ? revenueAnalysis.recommendations[0].message
+    : "Consolider votre principale source et anticiper les variations saisonnières."
+  const lines = [
+    `Revenus ${currentLabel} : ${formatCurrency(currentValue, currency)}`,
+    `Prévision Revenus — ${nextLabel}`,
+    `Dernier mois : ${formatCurrency(lastMonth.total, currency)}`,
+    `Revenu projeté : ${formatCurrency(projected, currency)} (${variation >= 0 ? '+' : ''}${variation.toFixed(1)}%)`,
+    `Moyenne mensuelle : ${formatCurrency(revenueAnalysis.stats?.avgMonthly || 0, currency)}`,
+    `Source principale : ${mainSource}`,
+    '',
+    `Recommandation : ${recommendation}`
+  ]
+  return lines.join('\n')
+}
+
+function buildSummaryFallback(summary = {}, currency, revenueAnalysis) {
+  const now = new Date()
+  const title = `Synthèse Budgétaire — ${formatMonthLabel(now)}`
+  const totalAlloue = formatCurrency(summary.total_alloue || 0, currency)
+  const totalDepense = formatCurrency(summary.total_depense || 0, currency)
+  const totalRestant = formatCurrency(summary.total_restant || 0, currency)
+  const utilisation = Number(summary.utilisation_moyenne || 0).toFixed(1)
+  const revenueLine = revenueAnalysis && revenueAnalysis.byMonth && revenueAnalysis.byMonth.length
+    ? `Revenus mensuels moyens : ${formatCurrency(revenueAnalysis.stats?.avgMonthly || 0, currency)}`
+    : null
+
+  const lines = [
+    title,
+    `Total alloué : ${totalAlloue}`,
+    `Montant dépensé : ${totalDepense}`,
+    `Montant restant : ${totalRestant}`,
+    `Utilisation moyenne : ${utilisation}%`,
+    revenueLine,
+    '',
+    'Statut système : service IA avancé indisponible, données consolidées fournies.'
+  ]
+  return lines.filter(Boolean).join('\n')
+}
+
+function buildFallbackResponse({ message, budgetsAnalysis, allBudgets, currency, revenueAnalysis }) {
+  if (messageTargetsRevenues(message)) {
+    const revenueFallback = buildRevenueFallback(revenueAnalysis, currency)
+    if (revenueFallback) return revenueFallback
+  }
+  const summary = budgetsAnalysis?.summary || {}
+  const categoryName = detectCategoryFromMessage(message, allBudgets)
+  if (categoryName) {
+    const history = buildCategoryHistory(allBudgets, categoryName)
+    const forecast = buildCategoryForecastMessage(categoryName, history, currency)
+    if (forecast) return forecast
+  }
+  return buildSummaryFallback(summary, currency, revenueAnalysis)
+}
 
 const AiController = {
   insights: async (req, res) => {
@@ -99,6 +284,12 @@ const AiController = {
             resolve(rows.map(r => r.nom).filter(Boolean))
           })
         } catch (_e) { resolve([]) }
+      })
+
+      const revenueAnalysis = await new Promise((resolve) => {
+        analyzeRevenuesDetailed(id_user)
+          .then(resolve)
+          .catch(() => resolve(null))
       })
 
       const comptes = await new Promise((resolve) => {
@@ -224,6 +415,7 @@ const AiController = {
             tendances: budgetAnalysis.trends,
             top_utilises: budgetAnalysis.top_utilises
           },
+          revenus_analysis: revenueAnalysis,
           objectifs: objectifs,
           dettes: dettes,
           remboursements_recents: remboursementsRecents,
@@ -237,9 +429,25 @@ const AiController = {
         context,
         `FAITS_JSON=${JSON.stringify(facts)}`
       ].filter(Boolean).join('\n')
-      const resp = await chatWithGemini(message, mergedContext)
-      const reply = (resp && resp.text) ? resp.text : `Désolé, je n'ai pas pu générer de réponse pour cette question. ${resp?.meta?.blockReason ? `(Raison: ${resp.meta.blockReason})` : ''}`.trim()
-      res.json({ reply })
+      let reply = ''
+      let fallbackUsed = false
+      try {
+        const resp = await chatWithGemini(message, mergedContext)
+        reply = (resp && resp.text)
+          ? resp.text
+          : `Désolé, je n'ai pas pu générer de réponse pour cette question.${resp?.meta?.blockReason ? ` (Raison: ${resp.meta.blockReason})` : ''}`
+      } catch (geminiError) {
+        fallbackUsed = true
+        console.error('Erreur Gemini, utilisation du fallback IA:', geminiError)
+        reply = buildFallbackResponse({
+          message,
+          budgetsAnalysis: budgetAnalysis,
+          allBudgets,
+          currency: userDevise,
+          revenueAnalysis
+        })
+      }
+      res.json({ reply, fallback: fallbackUsed })
     } catch (e) {
       const msg = String(e?.message || e)
       const missingKey = msg.includes('GEMINI_API_KEY')
