@@ -27,13 +27,13 @@ const DepensesController = {
     if (!id_user) return res.status(401).json({ message: "Non autorisé" });
 
     const id_compte = req.body?.id_compte;
-    
+
     // Si un compte est spécifié, vérifier les permissions
     if (id_compte) {
       try {
         const { hasAccess, role } = await checkAccountPermission(id_user, id_compte, 'write');
         if (!hasAccess) {
-          return res.status(403).json({ 
+          return res.status(403).json({
             message: 'Vous n\'avez pas la permission d\'ajouter des transactions sur ce compte. Seuls les contributeurs et propriétaires peuvent effectuer des transactions.',
             role: role || 'aucun'
           });
@@ -68,8 +68,8 @@ const DepensesController = {
           if (shouldNotify) {
             const alertPayload = {
               id_user,
-              type_alerte: 'Alerte seuil dépenses',
-              message: `Dépenses du jour (${totalToday}) supérieures ou égales au seuil (${thresholdValue}).`,
+              type_alerte: 'Limite de dépenses atteinte',
+              message: `Vous avez atteint votre limite de dépenses aujourd'hui (${totalToday}/${thresholdValue}).`,
               date_declenchement: new Date()
             };
             Alertes.create(alertPayload, (_eIns, insRes) => {
@@ -80,7 +80,7 @@ const DepensesController = {
                   io.to(`user:${id_user}`).emit('alert:new', { id_alerte: insRes?.insertId, ...alertPayload, lue: 0 });
                   console.log('[Depenses] Événement socket envoyé', { room: `user:${id_user}` })
                 }
-              } catch (_e) {}
+              } catch (_e) { }
               return res.json({ message: 'Dépense ajoutée', ...(result || {}), thresholdChecked: true, notified: true, totalToday, thresholdValue });
             });
           } else {
@@ -95,11 +95,11 @@ const DepensesController = {
     const { id_depense } = req.params;
     const id_user = req.user?.id_user;
     if (!id_user) return res.status(401).json({ message: "Non autorisé" });
-    
+
     console.log('📝 UPDATE DEPENSE - ID:', id_depense);
     console.log('📝 UPDATE DEPENSE - DATA:', req.body);
     console.log('📝 UPDATE DEPENSE - USER:', id_user);
-    
+
     // Récupérer la dépense pour vérifier les permissions
     const db = require('../config/db');
     db.query('SELECT id_user, id_compte FROM Depenses WHERE id_depense = ?', [id_depense], async (err, rows) => {
@@ -110,10 +110,10 @@ const DepensesController = {
       if (!rows || rows.length === 0) {
         return res.status(404).json({ message: "Dépense introuvable" });
       }
-      
+
       const depenseData = rows[0];
       const id_compte = depenseData.id_compte;
-      
+
       // Si la dépense appartient à l'utilisateur, il peut la modifier
       if (depenseData.id_user === id_user) {
         Depenses.update(id_depense, req.body, (err, result) => {
@@ -126,18 +126,18 @@ const DepensesController = {
         });
         return;
       }
-      
+
       // Si la dépense est sur un compte partagé, vérifier les permissions
       if (id_compte) {
         try {
           const { hasAccess, role } = await checkAccountPermission(id_user, id_compte, 'write');
           if (!hasAccess) {
-            return res.status(403).json({ 
+            return res.status(403).json({
               message: 'Vous n\'avez pas la permission de modifier cette transaction. Seuls les contributeurs et propriétaires peuvent modifier les transactions.',
               role: role || 'aucun'
             });
           }
-          
+
           Depenses.update(id_depense, req.body, (err, result) => {
             if (err) {
               console.error('❌ Erreur update model:', err);
@@ -160,7 +160,7 @@ const DepensesController = {
     const { id_depense } = req.params;
     const id_user = req.user?.id_user;
     if (!id_user) return res.status(401).json({ message: "Non autorisé" });
-    
+
     // Récupérer la dépense pour vérifier les permissions
     const db = require('../config/db');
     db.query('SELECT id_user, id_compte FROM Depenses WHERE id_depense = ?', [id_depense], async (err, rows) => {
@@ -168,10 +168,10 @@ const DepensesController = {
       if (!rows || rows.length === 0) {
         return res.status(404).json({ message: "Dépense introuvable" });
       }
-      
+
       const depenseData = rows[0];
       const id_compte = depenseData.id_compte;
-      
+
       // Si la dépense appartient à l'utilisateur, il peut la supprimer
       if (depenseData.id_user === id_user) {
         Depenses.delete(id_depense, (err) => {
@@ -180,18 +180,18 @@ const DepensesController = {
         });
         return;
       }
-      
+
       // Si la dépense est sur un compte partagé, vérifier les permissions
       if (id_compte) {
         try {
           const { hasAccess, role } = await checkAccountPermission(id_user, id_compte, 'write');
           if (!hasAccess) {
-            return res.status(403).json({ 
+            return res.status(403).json({
               message: 'Vous n\'avez pas la permission de supprimer cette transaction. Seuls les contributeurs et propriétaires peuvent supprimer les transactions.',
               role: role || 'aucun'
             });
           }
-          
+
           Depenses.delete(id_depense, (err) => {
             if (err) return res.status(500).json({ error: err });
             res.json({ message: 'Dépense supprimée' });
