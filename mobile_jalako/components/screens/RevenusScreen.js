@@ -25,7 +25,7 @@ const RevenusScreen = ({ onBack, onRefreshCallback, navigation }) => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedCategorie, setSelectedCategorie] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
-  const [displayLimit, setDisplayLimit] = useState(10);
+  const [displayLimit, setDisplayLimit] = useState(4);
   const [showLoadMore, setShowLoadMore] = useState(false);
   const [isSourceSelectOpen, setIsSourceSelectOpen] = useState(false);
 
@@ -115,12 +115,12 @@ const RevenusScreen = ({ onBack, onRefreshCallback, navigation }) => {
 
   // Fonction pour charger plus de revenus
   const loadMoreRevenus = () => {
-    setDisplayLimit(prev => prev + 10);
+    setDisplayLimit(prev => prev + 4);
   };
 
   // Fonction pour réinitialiser la pagination
   const resetPagination = () => {
-    setDisplayLimit(10);
+    setDisplayLimit(4);
     setShowLoadMore(false);
   };
 
@@ -1531,13 +1531,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     gap: 12,
   },
   statCard: {
-    width: '48%',
+    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
@@ -1800,12 +1798,14 @@ const styles = StyleSheet.create({
   // Styles pour la liste mobile des revenus
   revenusList: {
     gap: 12,
+    flexDirection: 'column',
   },
   revenuCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 14,
     marginBottom: 6,
+    width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,

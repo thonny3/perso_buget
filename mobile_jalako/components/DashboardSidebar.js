@@ -12,28 +12,10 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
       description: 'Accueil'
     },
     {
-      id: 'dettes',
-      label: 'Dettes',
-      icon: 'dollar-sign',
-      description: 'Dettes et remboursements'
-    },
-    {
       id: 'portefeuille',
       label: 'Portefeuille',
       icon: 'credit-card',
       description: 'Mon portefeuille'
-    },
-    {
-      id: 'investissements',
-      label: 'Investissements',
-      icon: 'trending-up',
-      description: 'Suivi des investissements'
-    },
-    {
-      id: 'depenses',
-      label: 'Dépenses',
-      icon: 'trending-down',
-      description: 'Mes dépenses'
     },
     {
       id: 'revenus',
@@ -42,16 +24,16 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
       description: 'Mes revenus'
     },
     {
+      id: 'depenses',
+      label: 'Dépenses',
+      icon: 'trending-down',
+      description: 'Mes dépenses'
+    },
+    {
       id: 'transactions',
       label: 'Transactions',
       icon: 'list',
       description: 'Toutes les transactions'
-    },
-    {
-      id: 'transferts',
-      label: 'Transferts',
-      icon: 'repeat',
-      description: 'Mouvements entre comptes/objectifs'
     },
     {
       id: 'budget',
@@ -76,6 +58,24 @@ const DashboardSidebar = ({ isVisible, onClose, onNavigate, currentScreen, onLog
       label: 'Alertes',
       icon: 'bell',
       description: 'Notifications'
+    },
+    {
+      id: 'transferts',
+      label: 'Transferts',
+      icon: 'repeat',
+      description: 'Mouvements entre comptes/objectifs'
+    },
+    {
+      id: 'dettes',
+      label: 'Dettes',
+      icon: 'dollar-sign',
+      description: 'Dettes et remboursements'
+    },
+    {
+      id: 'investissements',
+      label: 'Investissements',
+      icon: 'trending-up',
+      description: 'Suivi des investissements'
     },
     {
       id: 'ia',

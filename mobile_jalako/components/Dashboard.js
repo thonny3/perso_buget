@@ -6,6 +6,7 @@ import DashboardSidebar from './DashboardSidebar';
 import DashboardStats from './DashboardStats';
 import DashboardContent from './DashboardContent';
 import DashboardCharts from './DashboardCharts';
+import DashboardInsights from './DashboardInsights';
 import PortefeuilleScreen from './screens/PortefeuilleScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import BudgetScreen from './screens/BudgetScreen';
@@ -245,6 +246,7 @@ const Dashboard = ({ onLogout }) => {
           <>
             <DashboardStats />
             <DashboardCharts />
+            <DashboardInsights onNavigate={(screen) => setCurrentScreen(screen)} />
             <DashboardContent />
           </>
         );
@@ -324,6 +326,7 @@ const Dashboard = ({ onLogout }) => {
           <>
             <DashboardStats />
             <DashboardCharts />
+            <DashboardInsights onNavigate={(screen) => setCurrentScreen(screen)} />
             <DashboardContent />
           </>
         );

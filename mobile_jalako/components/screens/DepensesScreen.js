@@ -450,27 +450,6 @@ const DepensesScreen = ({ onBack, onRefreshCallback }) => {
         </View>
       </View>
 
-      {/* Statistiques par catégorie */}
-      {categoryStats.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Top catégories</Text>
-          <View style={styles.categoryStatsGrid}>
-            {categoryStats.slice(0, 4).map((stat) => (
-              <View key={stat.id} style={styles.categoryStatCard}>
-                <View style={styles.categoryStatHeader}>
-                  <View style={[styles.categoryStatIcon, { backgroundColor: stat.couleur || '#6b7280' }]}>
-                    <Feather name="pie-chart" size={16} color="#fff" />
-                  </View>
-                  <Text style={styles.categoryStatName}>{stat.nom}</Text>
-                </View>
-                <Text style={styles.categoryStatAmount}>{formatAmount(stat.total)} Ar</Text>
-                <Text style={styles.categoryStatCount}>{stat.count} dépense{stat.count > 1 ? 's' : ''}</Text>
-              </View>
-          ))}
-        </View>
-      </View>
-      )}
-
       {/* Analyse */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Analyse</Text>
@@ -1012,13 +991,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     marginBottom: 12,
     gap: 12,
   },
   statCard: {
-    flex: 1,
+    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,

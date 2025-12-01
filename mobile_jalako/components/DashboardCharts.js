@@ -94,26 +94,66 @@ const DashboardCharts = () => {
       );
     }
 
-    const chartData = dashboardData.revenueData.slice(-4); // 4 derniers mois
+    // Préparer les données pour les 6 derniers mois comme dans l'application web
+    const data = Array.isArray(dashboardData.revenueData) ? dashboardData.revenueData : [];
+    const now = new Date();
+    const getMonthKey = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    };
+
+    // Créer les 6 derniers mois
+    const lastSixMonths = Array.from({ length: 6 }, (_, idx) => {
+      const dt = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+      return { date: dt, key: getMonthKey(dt) };
+    });
+
+    // Mapper les données existantes
+    const monthMap = data.reduce((acc, item) => {
+      if (item && typeof item.month === 'string') {
+        acc[item.month] = item;
+      }
+      return acc;
+    }, {});
+
+    // Créer les données du graphique
+    const chartData = lastSixMonths.map(({ date, key }) => {
+      const found = monthMap[key] || {};
+      const monthName = date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+      return {
+        month: key,
+        revenue: Number(found.revenue || 0),
+        expenses: Number(found.expenses || 0),
+        label: monthName
+      };
+    });
+
     const maxValue = Math.max(
-      ...chartData.map(d => Math.max(d.revenue || 0, d.expenses || 0))
+      ...chartData.map(d => Math.max(d.revenue || 0, d.expenses || 0)),
+      1 // Éviter la division par zéro
     );
 
     const getMonthName = (monthStr) => {
+      if (!monthStr) return '';
+      const parts = monthStr.split('-');
+      if (parts.length !== 2) return monthStr;
       const months = {
         '01': 'Jan', '02': 'Fév', '03': 'Mar', '04': 'Avr',
         '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Aoû',
         '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Déc'
       };
-      return months[monthStr] || monthStr;
+      return months[parts[1]] || parts[1];
     };
 
     return (
       <Animated.View style={[styles.chartContainer, { opacity: animatedValues.chartOpacity }]}>
         <View style={styles.chartHeader}>
           <View style={styles.chartTitleContainer}>
-            <Feather name="trending-up" size={24} color="#3b82f6" />
-            <Text style={styles.chartTitle}>Revenus vs Dépenses</Text>
+            <View style={styles.chartTitleTextContainer}>
+              <Text style={styles.chartTitle}>Revenus vs Dépenses</Text>
+              <Text style={styles.chartSubtitle}>Évolution sur les 6 derniers mois</Text>
+            </View>
           </View>
           <View style={styles.legend}>
             <View style={styles.legendItem}>
@@ -171,14 +211,69 @@ const DashboardCharts = () => {
                 return { x, y };
               });
               
-              const renderSegments = (points, color) => {
-                const segments = [];
+              // Créer des courbes lisses avec interpolation de Bézier
+              const createSmoothPath = (points) => {
+                if (points.length < 2) return [];
+                
+                const smoothSegments = [];
                 for (let i = 0; i < points.length - 1; i++) {
+                  const p0 = i > 0 ? points[i - 1] : points[i];
                   const p1 = points[i];
                   const p2 = points[i + 1];
+                  const p3 = i < points.length - 2 ? points[i + 2] : points[i + 1];
+                  
+                  // Créer plusieurs petits segments pour une courbe lisse (interpolation catmull-rom)
+                  const segmentsPerCurve = 20;
+                  for (let j = 0; j < segmentsPerCurve; j++) {
+                    const t = j / segmentsPerCurve;
+                    const t2 = t * t;
+                    const t3 = t2 * t;
+                    
+                    // Interpolation de Catmull-Rom pour courbes lisses
+                    const x = 0.5 * (
+                      (2 * p1.x) +
+                      (-p0.x + p2.x) * t +
+                      (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+                      (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+                    );
+                    
+                    const y = 0.5 * (
+                      (2 * p1.y) +
+                      (-p0.y + p2.y) * t +
+                      (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+                      (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+                    );
+                    
+                    if (j === 0 || smoothSegments.length === 0) {
+                      smoothSegments.push({ x, y });
+                    } else {
+                      const prev = smoothSegments[smoothSegments.length - 1];
+                      const dx = x - prev.x;
+                      const dy = y - prev.y;
+                      const length = Math.sqrt(dx * dx + dy * dy);
+                      if (length > 0.5) { // Éviter les segments trop petits
+                        smoothSegments.push({ x, y });
+                      }
+                    }
+                  }
+                }
+                return smoothSegments.length > 0 ? smoothSegments : points;
+              };
+
+              const renderSegments = (points, color) => {
+                // Créer une version lissée des points
+                const smoothPoints = points.length > 2 ? createSmoothPath(points) : points;
+                const segments = [];
+                
+                for (let i = 0; i < smoothPoints.length - 1; i++) {
+                  const p1 = smoothPoints[i];
+                  const p2 = smoothPoints[i + 1];
                   const dx = p2.x - p1.x;
                   const dy = p2.y - p1.y;
                   const length = Math.sqrt(dx * dx + dy * dy);
+                  
+                  if (length < 0.1) continue; // Ignorer les segments trop courts
+                  
                   const angle = Math.atan2(dy, dx) * (180 / Math.PI);
                   segments.push(
                     <Animated.View
@@ -268,7 +363,7 @@ const DashboardCharts = () => {
                   <View style={styles.lineLabels}>
                     {chartData.map((d, i) => (
                       <Text key={`lbl-${i}`} style={styles.barLabel}>
-                        {getMonthName(d.month)}
+                        {d.label || getMonthName(d.month)}
                       </Text>
                     ))}
                   </View>
@@ -441,11 +536,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  chartTitleTextContainer: {
+    flex: 1,
+  },
   chartTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#111827',
-    marginLeft: 8,
+    marginBottom: 4,
+  },
+  chartSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '400',
   },
   legend: {
     flexDirection: 'row',
@@ -507,8 +610,8 @@ const styles = StyleSheet.create({
   },
   lineSegment: {
     position: 'absolute',
-    height: 2,
-    borderRadius: 1,
+    height: 3,
+    borderRadius: 1.5,
   },
   lineDot: {
     position: 'absolute',

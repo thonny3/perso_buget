@@ -114,7 +114,7 @@ const DashboardContent = () => {
         
         <View style={styles.transactionsList}>
           {dashboardData.recentTransactions.length > 0 ? (
-            dashboardData.recentTransactions.map((transaction, index) => (
+            dashboardData.recentTransactions.slice(0, 5).map((transaction, index) => (
               <View key={index} style={styles.transactionItem}>
                 <View style={styles.transactionLeft}>
                   <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(transaction.type) + '20' }]}>
